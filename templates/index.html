@@ -73,14 +73,18 @@
                         <small>Konfiguration</small>
                     </div>
                     <div class="step" id="step2">
+                        <i class="fas fa-edit"></i><br>
+                        <small>Email erstellen</small>
+                    </div>
+                    <div class="step" id="step3">
                         <i class="fas fa-upload"></i><br>
                         <small>Dateien hochladen</small>
                     </div>
-                    <div class="step" id="step3">
+                    <div class="step" id="step4">
                         <i class="fas fa-eye"></i><br>
                         <small>Vorschau</small>
                     </div>
-                    <div class="step" id="step4">
+                    <div class="step" id="step5">
                         <i class="fas fa-paper-plane"></i><br>
                         <small>Versenden</small>
                     </div>
@@ -88,20 +92,16 @@
 
                 <!-- Configuration Section -->
                 <div id="config-section" class="config-section">
-                    <h3><i class="fas fa-cog"></i> Email-Konfiguration</h3>
+                    <h3><i class="fas fa-cog"></i> SMTP-Konfiguration</h3>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="email-login" class="form-label">Email-Adresse</label>
-                                <input type="email" class="form-control" id="email-login" placeholder="ihre@email.de">
-                            </div>
-                            <div class="mb-3">
-                                <label for="email-password" class="form-label">Passwort</label>
-                                <input type="password" class="form-control" id="email-password" placeholder="Ihr Email-Passwort">
-                            </div>
-                            <div class="mb-3">
                                 <label for="smtp-server" class="form-label">SMTP Server</label>
                                 <input type="text" class="form-control" id="smtp-server" placeholder="mail.example.de">
+                            </div>
+                            <div class="mb-3">
+                                <label for="email-login" class="form-label">Email-Adresse</label>
+                                <input type="email" class="form-control" id="email-login" placeholder="ihre@email.de">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -110,17 +110,102 @@
                                 <input type="number" class="form-control" id="smtp-port" value="465">
                             </div>
                             <div class="mb-3">
-                                <label for="email-subject" class="form-label">Email-Betreff</label>
-                                <input type="text" class="form-control" id="email-subject" placeholder="Ihr Email-Betreff">
+                                <label for="email-password" class="form-label">Passwort</label>
+                                <input type="password" class="form-control" id="email-password" placeholder="Ihr Email-Passwort">
                             </div>
-                            <div class="mb-3">
-                                <button type="button" class="btn btn-primary" onclick="saveConfig()">
-                                    <i class="fas fa-save"></i> Konfiguration speichern
-                                </button>
-                                <button type="button" class="btn btn-secondary ms-2" onclick="loadConfig()">
-                                    <i class="fas fa-download"></i> Laden
-                                </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Creation Section -->
+                <div id="email-section" class="config-section" style="display: none;">
+                    <h3><i class="fas fa-edit"></i> Email erstellen</h3>
+                    
+                    <!-- Email Subject -->
+                    <div class="mb-4">
+                        <div class="mb-3">
+                            <label for="email-subject" class="form-label">Email-Betreff</label>
+                            <input type="text" class="form-control" id="email-subject" placeholder="Email-Betreff">
+                        </div>
+                    </div>
+
+                    <!-- Email Body Editor -->
+                    <div class="mb-4">
+                        <h5>Email-Body (HTML-Editor)</h5>
+                        
+                        <!-- Upload Option -->
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="upload-area" onclick="document.getElementById('email-body-upload').click()">
+                                        <i class="fas fa-file-code fa-2x text-muted mb-2"></i>
+                                        <p class="mb-1">Email als HTML-Datei hochladen</p>
+                                        <small class="text-muted">Oder direkt im Editor bearbeiten</small>
+                                    </div>
+                                    <input type="file" id="email-body-upload" accept=".html,.htm" style="display: none;" onchange="uploadEmailBodyFile()">
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="upload-area" onclick="document.getElementById('images-upload').click()">
+                                        <i class="fas fa-images fa-2x text-muted mb-2"></i>
+                                        <p class="mb-1">Bilder für Email hochladen</p>
+                                        <small class="text-muted">PNG, JPG, GIF - Mehrere Dateien</small>
+                                    </div>
+                                    <input type="file" id="images-upload" accept=".png,.jpg,.jpeg,.gif" multiple style="display: none;" onchange="uploadImages()">
+                                </div>
                             </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="email-body-editor" class="form-label">HTML-Code</label>
+                                <textarea 
+                                    class="form-control" 
+                                    id="email-body-editor" 
+                                    rows="15" 
+                                    placeholder="Geben Sie hier Ihren HTML-Code ein..."
+                                    oninput="updateHtmlPreview(); saveEmailBodyToStorage()"
+                                    style="font-family: 'Courier New', monospace; font-size: 14px;">
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Email</title>
+</head>
+<body>
+    <h1>Willkommen!</h1>
+    <p>Dies ist eine Beispiel-Email.</p>
+</body>
+</html></textarea>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="formatHtml()">
+                                        <i class="fas fa-code"></i> HTML formatieren
+                                    </button>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-image"></i> Bild einfügen
+                                        </button>
+                                        <ul class="dropdown-menu" id="image-dropdown">
+                                            <li class="dropdown-header">Hochgeladene Bilder:</li>
+                                            <li id="no-images-item"><span class="dropdown-item-text text-muted">Keine Bilder hochgeladen</span></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Live-Vorschau</label>
+                                <div 
+                                    id="html-preview" 
+                                    class="border rounded p-3" 
+                                    style="height: 400px; background: white;">
+                                    <p class="text-muted">Die Vorschau wird hier angezeigt...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Images Status and Gallery -->
+                        <div id="images-gallery" class="mt-3" style="display: none;">
+                            <h6>Hochgeladene Bilder:</h6>
+                            <div class="row" id="images-container"></div>
                         </div>
                     </div>
                 </div>
@@ -138,43 +223,17 @@
                             <small class="text-muted">Format: emails,attachments</small>
                         </div>
                         <input type="file" id="csv-upload" accept=".csv" style="display: none;" onchange="uploadCSV()">
-                        <div id="csv-status" class="mt-2"></div>
-                    </div>
-
-                    <!-- Email Body Upload -->
-                    <div class="mb-4">
-                        <h5>2. Email-Body (HTML-Datei)</h5>
-                        <div class="upload-area" onclick="document.getElementById('email-body-upload').click()">
-                            <i class="fas fa-file-code fa-3x text-muted mb-3"></i>
-                            <p>HTML-Datei hier ablegen oder klicken zum Auswählen</p>
-                            <small class="text-muted">Email-Inhalt als HTML-Datei</small>
-                        </div>
-                        <input type="file" id="email-body-upload" accept=".html,.htm" style="display: none;" onchange="uploadEmailBody()">
-                        <div id="email-body-status" class="mt-2"></div>
-                    </div>
-
-                    <!-- Logo Upload -->
-                    <div class="mb-4">
-                        <h5>3. Logo (Optional)</h5>
-                        <div class="upload-area" onclick="document.getElementById('logo-upload').click()">
-                            <i class="fas fa-image fa-3x text-muted mb-3"></i>
-                            <p>Logo-Datei hier ablegen oder klicken zum Auswählen</p>
-                            <small class="text-muted">PNG-Datei für Inline-Logo</small>
-                        </div>
-                        <input type="file" id="logo-upload" accept=".png" style="display: none;" onchange="uploadLogo()">
-                        <div id="logo-status" class="mt-2"></div>
                     </div>
 
                     <!-- Attachments Upload -->
                     <div class="mb-4">
-                        <h5>4. Anhänge (PDF-Dateien)</h5>
+                        <h5>2. Anhänge (PDF-Dateien)</h5>
                         <div class="upload-area" onclick="document.getElementById('attachments-upload').click()">
                             <i class="fas fa-file-pdf fa-3x text-muted mb-3"></i>
                             <p>PDF-Anhänge hier ablegen oder klicken zum Auswählen</p>
                             <small class="text-muted">Mehrere PDF-Dateien auswählbar</small>
                         </div>
                         <input type="file" id="attachments-upload" accept=".pdf" multiple style="display: none;" onchange="uploadAttachments()">
-                        <div id="attachments-status" class="mt-2"></div>
                     </div>
                 </div>
 
@@ -233,6 +292,9 @@
         let currentStep = 1;
         let csvData = null;
         let emailConfig = null;
+        
+        // Session ID for temporary file storage
+        const sessionId = '{{ session_id }}';
 
         // Get the base path for API calls
         const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
@@ -240,7 +302,19 @@
         // Load configuration from localStorage on page load
         window.onload = function() {
             loadConfig();
+            updateHtmlPreview(); // Initialize HTML preview
         };
+
+        // Helper function to get headers with session ID
+        function getHeaders(contentType = 'application/json') {
+            const headers = {
+                'X-Session-ID': sessionId
+            };
+            if (contentType) {
+                headers['Content-Type'] = contentType;
+            }
+            return headers;
+        }
 
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
@@ -253,24 +327,6 @@
             bsToast.show();
         }
 
-        function saveConfig() {
-            const config = {
-                email_login: document.getElementById('email-login').value,
-                smtp_server: document.getElementById('smtp-server').value,
-                smtp_port: document.getElementById('smtp-port').value,
-                email_subject: document.getElementById('email-subject').value
-            };
-            
-            // Save to localStorage (excluding password)
-            localStorage.setItem('emailConfig', JSON.stringify(config));
-            emailConfig = {
-                ...config,
-                email_password: document.getElementById('email-password').value
-            };
-            
-            showToast('Konfiguration gespeichert!', 'success');
-        }
-
         function loadConfig() {
             const saved = localStorage.getItem('emailConfig');
             if (saved) {
@@ -278,13 +334,27 @@
                 document.getElementById('email-login').value = config.email_login || '';
                 document.getElementById('smtp-server').value = config.smtp_server || '';
                 document.getElementById('smtp-port').value = config.smtp_port || '465';
-                document.getElementById('email-subject').value = config.email_subject || '';
                 showToast('Konfiguration geladen!', 'success');
+            }
+            
+            // Load email body from localStorage
+            const savedEmailBody = localStorage.getItem('emailBody');
+            if (savedEmailBody) {
+                document.getElementById('email-body-editor').value = savedEmailBody;
+            }
+            
+            // Load uploaded images
+            const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+            if (storedImages.length > 0) {
+                updateImagesGallery();
+                updateImageDropdown();
+                
+                showToast(`${storedImages.length} Bild(er) aus LocalStorage geladen`, 'success');
             }
         }
 
         function updateStepIndicator() {
-            for (let i = 1; i <= 4; i++) {
+            for (let i = 1; i <= 5; i++) {
                 const step = document.getElementById(`step${i}`);
                 step.className = 'step';
                 if (i < currentStep) {
@@ -296,25 +366,26 @@
         }
 
         function showSection(sectionId) {
-            const sections = ['config-section', 'upload-section', 'preview-section', 'send-section'];
+            const sections = ['config-section', 'email-section', 'upload-section', 'preview-section', 'send-section'];
             sections.forEach(id => {
                 document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
             });
             
             // Update navigation buttons
             document.getElementById('prev-btn').style.display = currentStep > 1 ? 'inline-block' : 'none';
-            document.getElementById('next-btn').style.display = currentStep < 4 ? 'inline-block' : 'none';
+            document.getElementById('next-btn').style.display = currentStep < 5 ? 'inline-block' : 'none';
         }
 
-        function nextStep() {
-            if (currentStep < 4) {
+        async function nextStep() {
+            if (currentStep < 5) {
                 // Validate current step before proceeding
-                if (validateCurrentStep()) {
+                const isValid = await validateCurrentStep();
+                if (isValid) {
                     currentStep++;
                     updateStepIndicator();
                     showSection(`${getSectionName(currentStep)}-section`);
                     
-                    if (currentStep === 3) {
+                    if (currentStep === 4) {
                         generatePreview();
                     }
                 }
@@ -330,32 +401,87 @@
         }
 
         function getSectionName(step) {
-            const names = ['config', 'upload', 'preview', 'send'];
+            const names = ['config', 'email', 'upload', 'preview', 'send'];
             return names[step - 1];
         }
 
         function validateCurrentStep() {
             switch (currentStep) {
                 case 1:
-                    const requiredFields = ['email-login', 'email-password', 'smtp-server', 'email-subject'];
-                    for (let field of requiredFields) {
-                        if (!document.getElementById(field).value.trim()) {
-                            showToast(`Bitte füllen Sie das Feld "${field}" aus.`, 'error');
-                            return false;
-                        }
-                    }
-                    saveConfig();
-                    return true;
+                    return validateAndTestConfig();
                 case 2:
+                    // Validate email subject
+                    if (!document.getElementById('email-subject').value.trim()) {
+                        showToast('Bitte geben Sie einen Email-Betreff ein.', 'error');
+                        return false;
+                    }
+                    // Validate HTML content
+                    if (!document.getElementById('email-body-editor').value.trim()) {
+                        showToast('Bitte geben Sie HTML-Inhalt ein.', 'error');
+                        return false;
+                    }
+                    // Save HTML content
+                    saveEmailBody();
+                    return true;
+                case 3:
                     if (!csvData) {
                         showToast('Bitte laden Sie eine CSV-Datei hoch.', 'error');
                         return false;
                     }
                     return true;
-                case 3:
+                case 4:
                     return true;
                 default:
                     return true;
+            }
+        }
+
+        async function validateAndTestConfig() {
+            // First validate that all fields are filled
+            const requiredFields = ['email-login', 'email-password', 'smtp-server'];
+            for (let field of requiredFields) {
+                if (!document.getElementById(field).value.trim()) {
+                    showToast(`Bitte füllen Sie das Feld "${field}" aus.`, 'error');
+                    return false;
+                }
+            }
+
+            // Prepare config for testing
+            const config = {
+                email_login: document.getElementById('email-login').value,
+                email_password: document.getElementById('email-password').value,
+                smtp_server: document.getElementById('smtp-server').value,
+                smtp_port: document.getElementById('smtp-port').value
+            };
+
+            // Show testing message
+            showToast('Teste SMTP-Konfiguration...', 'info');
+
+            try {
+                const response = await fetch(basePath + 'test-config', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Save config and show success
+                    localStorage.setItem('emailConfig', JSON.stringify({
+                        email_login: config.email_login,
+                        smtp_server: config.smtp_server,
+                        smtp_port: config.smtp_port
+                    }));
+                    emailConfig = config;
+                    showToast('SMTP-Konfiguration erfolgreich getestet!', 'success');
+                    return true;
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                showToast(`SMTP-Test fehlgeschlagen: ${error.message}`, 'error');
+                return false;
             }
         }
 
@@ -369,6 +495,9 @@
             try {
                 const response = await fetch(basePath + 'upload-csv', {
                     method: 'POST',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    },
                     body: formData
                 });
                 const result = await response.json();
@@ -398,6 +527,9 @@
             try {
                 const response = await fetch(basePath + 'upload-email-body', {
                     method: 'POST',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    },
                     body: formData
                 });
                 const result = await response.json();
@@ -416,31 +548,374 @@
             }
         }
 
-        async function uploadLogo() {
-            const file = document.getElementById('logo-upload').files[0];
+        async function uploadEmailBodyFile() {
+            const file = document.getElementById('email-body-upload').files[0];
             if (!file) return;
 
+            try {
+                const text = await file.text();
+                document.getElementById('email-body-editor').value = text;
+                updateHtmlPreview();
+                saveEmailBodyToStorage();
+                
+                document.getElementById('email-body-status').innerHTML = 
+                    `<div class="alert alert-success"><i class="fas fa-check"></i> HTML-Datei "${file.name}" geladen</div>`;
+                showToast('HTML-Datei erfolgreich geladen!', 'success');
+            } catch (error) {
+                document.getElementById('email-body-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler beim Laden der Datei: ${error.message}</div>`;
+                showToast('Fehler beim Laden der HTML-Datei!', 'error');
+            }
+        }
+
+        function loadTemplateExample() {
+            const exampleTemplate = `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professionelle Email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            background: #e9ecef;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Willkommen!</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Sehr geehrte Damen und Herren,</h2>
+        <p>vielen Dank für Ihr Interesse an unseren Dienstleistungen.</p>
+        
+        <p>Im Anhang finden Sie die gewünschten Unterlagen.</p>
+        
+        <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+        
+        <p>Mit freundlichen Grüßen<br>
+        Ihr Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>Diese E-Mail wurde automatisch generiert.</p>
+    </div>
+</body>
+</html>`;
+            
+            document.getElementById('email-body-editor').value = exampleTemplate;
+            updateHtmlPreview();
+            saveEmailBodyToStorage();
+            showToast('Beispiel-Template geladen!', 'success');
+        }
+
+        function updateHtmlPreview() {
+            const htmlCode = document.getElementById('email-body-editor').value;
+            const previewDiv = document.getElementById('html-preview');
+            
+            let processedHtml = htmlCode;
+            
+            // Replace uploaded images with their data URLs
+            const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+            storedImages.forEach(image => {
+                // Use filename-based CID pattern for consistency
+                const filenameBase = image.name.split('.')[0];
+                const cidPattern = `cid:img-${filenameBase}`;
+                const regex = new RegExp(`src="${cidPattern}"`, 'g');
+                const regexSingle = new RegExp(`src='${cidPattern}'`, 'g');
+                processedHtml = processedHtml.replace(regex, `src="${image.dataUrl}"`);
+                processedHtml = processedHtml.replace(regexSingle, `src='${image.dataUrl}'`);
+            });
+            
+            // Create iframe to safely render HTML with scrollbars
+            previewDiv.innerHTML = `<iframe srcdoc="${processedHtml.replace(/"/g, '&quot;')}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+        }
+
+        function saveEmailBodyToStorage() {
+            const htmlContent = document.getElementById('email-body-editor').value;
+            localStorage.setItem('emailBody', htmlContent);
+        }
+
+        async function saveEmailBodyToServer() {
+            const htmlContent = document.getElementById('email-body-editor').value;
+            
+            if (!htmlContent.trim()) {
+                showToast('Kein HTML-Inhalt zum Speichern vorhanden!', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(basePath + 'upload-email-body', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ content: htmlContent })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('email-body-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> Email-Body erfolgreich gespeichert</div>`;
+                    showToast('Email-Body erfolgreich gespeichert!', 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('email-body-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Speichern!', 'error');
+            }
+        }
+
+        function formatHtml() {
+            const editor = document.getElementById('email-body-editor');
+            let html = editor.value;
+            
+            // Simple HTML formatting (basic indentation)
+            html = html.replace(/></g, '>\n<');
+            const lines = html.split('\n');
+            let indentLevel = 0;
+            const indentSize = 2;
+            
+            const formattedLines = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+                
+                if (trimmed.startsWith('</')) {
+                    indentLevel = Math.max(0, indentLevel - 1);
+                }
+                
+                const indented = ' '.repeat(indentLevel * indentSize) + trimmed;
+                
+                if (trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.endsWith('/>') && !trimmed.match(/<\w+[^>]*\/>/)) {
+                    if (!trimmed.match(/<(br|hr|img|input|meta|link)/i)) {
+                        indentLevel++;
+                    }
+                }
+                
+                return indented;
+            });
+            
+            editor.value = formattedLines.join('\n');
+            updateHtmlPreview();
+            saveEmailBodyToStorage();
+            showToast('HTML formatiert!', 'success');
+        }
+
+        function clearHtml() {
+            if (confirm('Möchten Sie den HTML-Code wirklich löschen?')) {
+                document.getElementById('email-body-editor').value = '';
+                document.getElementById('html-preview').innerHTML = '<p class="text-muted">Die Vorschau wird hier angezeigt...</p>';
+                saveEmailBodyToStorage();
+                showToast('HTML-Code geleert!', 'info');
+            }
+        }
+
+        async function saveEmailBody() {
+            const htmlContent = document.getElementById('email-body-editor').value;
+            
+            try {
+                const response = await fetch(basePath + 'upload-email-body', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ content: htmlContent })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('email-body-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> Email-Body gespeichert</div>`;
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('email-body-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                throw error;
+            }
+        }
+
+        async function uploadImages() {
+            const files = document.getElementById('images-upload').files;
+            if (files.length === 0) return;
+
             const formData = new FormData();
-            formData.append('file', file);
+            for (let file of files) {
+                formData.append('files', file);
+            }
 
             try {
-                const response = await fetch(basePath + 'upload-logo', {
+                const response = await fetch(basePath + 'upload-images', {
                     method: 'POST',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    },
                     body: formData
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById('logo-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> Logo hochgeladen</div>`;
-                    showToast('Logo erfolgreich hochgeladen!', 'success');
+                    showToast(`${result.uploaded_files.length} Bild(er) erfolgreich hochgeladen!`, 'success');
+                    
+                    // Store images in localStorage for preview and dropdown
+                    await storeImagesInLocalStorage(files);
+                    
+                    // Update gallery and dropdown immediately
+                    updateImagesGallery();
+                    updateImageDropdown();
                 } else {
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                document.getElementById('logo-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Logo-Upload!', 'error');
+                showToast(`Fehler beim Bild-Upload: ${error.message}`, 'error');
+            }
+        }
+
+        function storeImagesInLocalStorage(files) {
+            return new Promise((resolve) => {
+                const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+                let processedCount = 0;
+                
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const imageData = {
+                            name: file.name,
+                            dataUrl: e.target.result,
+                            id: 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+                        };
+                        
+                        storedImages.push(imageData);
+                        localStorage.setItem('uploadedImages', JSON.stringify(storedImages));
+                        
+                        processedCount++;
+                        if (processedCount === files.length) {
+                            // Update preview if images are used in HTML
+                            updateHtmlPreview();
+                            resolve();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
+
+        function updateImagesGallery() {
+            const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+            const gallery = document.getElementById('images-gallery');
+            const container = document.getElementById('images-container');
+            
+            if (storedImages.length === 0) {
+                gallery.style.display = 'none';
+                return;
+            }
+            
+            gallery.style.display = 'block';
+            container.innerHTML = '';
+            
+            storedImages.forEach(image => {
+                const col = document.createElement('div');
+                col.className = 'col-md-3 mb-3';
+                col.innerHTML = `
+                    <div class="card">
+                        <img src="${image.dataUrl}" class="card-img-top" style="height: 100px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <small class="text-muted">${image.name}</small>
+                            <br>
+                            <button class="btn btn-sm btn-outline-primary" onclick="insertImageCode('${image.id}', '${image.name}')">
+                                <i class="fas fa-plus"></i> Einfügen
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeImage('${image.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        }
+
+        function updateImageDropdown() {
+            const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+            const dropdown = document.getElementById('image-dropdown');
+            const noImagesItem = document.getElementById('no-images-item');
+            
+            // Remove existing image items
+            const existingItems = dropdown.querySelectorAll('.image-dropdown-item');
+            existingItems.forEach(item => item.remove());
+            
+            if (storedImages.length === 0) {
+                noImagesItem.style.display = 'block';
+                return;
+            }
+            
+            noImagesItem.style.display = 'none';
+            
+            storedImages.forEach(image => {
+                const li = document.createElement('li');
+                li.className = 'image-dropdown-item';
+                li.innerHTML = `
+                    <a class="dropdown-item" href="#" onclick="insertImageCode('${image.id}', '${image.name}')">
+                        <i class="fas fa-image"></i> ${image.name}
+                    </a>
+                `;
+                dropdown.appendChild(li);
+            });
+        }
+
+        function insertImageCode(imageId, imageName) {
+            const editor = document.getElementById('email-body-editor');
+            // Use filename-based CID instead of random ID for better backend compatibility
+            const filenameBase = imageName.split('.')[0];
+            const imageCode = `<img src="cid:img-${filenameBase}" alt="${imageName}" style="max-width: 200px; height: auto;">`;
+            
+            // Insert at cursor position or at the end
+            const cursorPos = editor.selectionStart;
+            const textBefore = editor.value.substring(0, cursorPos);
+            const textAfter = editor.value.substring(cursorPos);
+            
+            editor.value = textBefore + imageCode + textAfter;
+            
+            // Move cursor after inserted code
+            editor.selectionStart = editor.selectionEnd = cursorPos + imageCode.length;
+            editor.focus();
+            
+            updateHtmlPreview();
+            saveEmailBodyToStorage();
+            showToast(`Bild "${imageName}" eingefügt!`, 'success');
+        }
+
+        function removeImage(imageId) {
+            if (confirm('Möchten Sie dieses Bild wirklich löschen?')) {
+                const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+                const filteredImages = storedImages.filter(img => img.id !== imageId);
+                localStorage.setItem('uploadedImages', JSON.stringify(filteredImages));
+                
+                updateImagesGallery();
+                updateImageDropdown();
+                updateHtmlPreview();
+                showToast('Bild entfernt!', 'info');
             }
         }
 
@@ -456,21 +931,20 @@
             try {
                 const response = await fetch(basePath + 'upload-attachments', {
                     method: 'POST',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    },
                     body: formData
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById('attachments-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Anhänge hochgeladen</div>`;
                     showToast(`${result.uploaded_files.length} Anhänge erfolgreich hochgeladen!`, 'success');
                 } else {
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                document.getElementById('attachments-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Anhang-Upload!', 'error');
+                showToast(`Fehler beim Anhang-Upload: ${error.message}`, 'error');
             }
         }
 
@@ -480,9 +954,7 @@
             try {
                 const response = await fetch(basePath + 'preview-emails', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getHeaders(),
                     body: JSON.stringify({ csv_data: csvData })
                 });
                 const result = await response.json();
@@ -555,6 +1027,19 @@
                 return;
             }
 
+            // Get email subject from the form
+            const emailSubject = document.getElementById('email-subject').value.trim();
+            if (!emailSubject) {
+                showToast('Email-Betreff ist erforderlich!', 'error');
+                return;
+            }
+
+            // Add email subject to config
+            const configWithSubject = {
+                ...emailConfig,
+                email_subject: emailSubject
+            };
+
             // Show progress
             document.getElementById('send-progress').style.display = 'block';
             const progressBar = document.querySelector('.progress-bar');
@@ -563,11 +1048,9 @@
             try {
                 const response = await fetch(basePath + 'send-emails', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getHeaders(),
                     body: JSON.stringify({
-                        config: emailConfig,
+                        config: configWithSubject,
                         csv_data: csvData
                     })
                 });
