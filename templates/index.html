@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Mailer - Email Versand Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .upload-area.dragover {
+            border-color: #0d6efd;
+            background-color: #e7f1ff;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+        .step {
+            flex: 1;
+            text-align: center;
+            padding: 1rem;
+            border: 2px solid #dee2e6;
+            margin: 0 0.25rem;
+            border-radius: 0.375rem;
+            background: white;
+        }
+        .step.active {
+            border-color: #0d6efd;
+            background-color: #e7f1ff;
+        }
+        .step.completed {
+            border-color: #198754;
+            background-color: #d1e7dd;
+        }
+        .email-preview {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .config-section {
+            background: #f8f9fa;
+            border-radius: 0.375rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-envelope text-primary"></i>
+                    Simple Mailer
+                </h1>
+                
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step active" id="step1">
+                        <i class="fas fa-cog"></i><br>
+                        <small>Konfiguration</small>
+                    </div>
+                    <div class="step" id="step2">
+                        <i class="fas fa-upload"></i><br>
+                        <small>Dateien hochladen</small>
+                    </div>
+                    <div class="step" id="step3">
+                        <i class="fas fa-eye"></i><br>
+                        <small>Vorschau</small>
+                    </div>
+                    <div class="step" id="step4">
+                        <i class="fas fa-paper-plane"></i><br>
+                        <small>Versenden</small>
+                    </div>
+                </div>
+
+                <!-- Configuration Section -->
+                <div id="config-section" class="config-section">
+                    <h3><i class="fas fa-cog"></i> Email-Konfiguration</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email-login" class="form-label">Email-Adresse</label>
+                                <input type="email" class="form-control" id="email-login" placeholder="ihre@email.de">
+                            </div>
+                            <div class="mb-3">
+                                <label for="email-password" class="form-label">Passwort</label>
+                                <input type="password" class="form-control" id="email-password" placeholder="Ihr Email-Passwort">
+                            </div>
+                            <div class="mb-3">
+                                <label for="smtp-server" class="form-label">SMTP Server</label>
+                                <input type="text" class="form-control" id="smtp-server" placeholder="mail.example.de">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="smtp-port" class="form-label">SMTP Port</label>
+                                <input type="number" class="form-control" id="smtp-port" value="465">
+                            </div>
+                            <div class="mb-3">
+                                <label for="email-subject" class="form-label">Email-Betreff</label>
+                                <input type="text" class="form-control" id="email-subject" placeholder="Ihr Email-Betreff">
+                            </div>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-primary" onclick="saveConfig()">
+                                    <i class="fas fa-save"></i> Konfiguration speichern
+                                </button>
+                                <button type="button" class="btn btn-secondary ms-2" onclick="loadConfig()">
+                                    <i class="fas fa-download"></i> Laden
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Section -->
+                <div id="upload-section" class="config-section" style="display: none;">
+                    <h3><i class="fas fa-upload"></i> Dateien hochladen</h3>
+                    
+                    <!-- CSV Upload -->
+                    <div class="mb-4">
+                        <h5>1. CSV-Datei mit Email-Adressen und Anhängen</h5>
+                        <div class="upload-area" onclick="document.getElementById('csv-upload').click()">
+                            <i class="fas fa-file-csv fa-3x text-muted mb-3"></i>
+                            <p>CSV-Datei hier ablegen oder klicken zum Auswählen</p>
+                            <small class="text-muted">Format: emails,attachments</small>
+                        </div>
+                        <input type="file" id="csv-upload" accept=".csv" style="display: none;" onchange="uploadCSV()">
+                        <div id="csv-status" class="mt-2"></div>
+                    </div>
+
+                    <!-- Email Body Upload -->
+                    <div class="mb-4">
+                        <h5>2. Email-Body (HTML-Datei)</h5>
+                        <div class="upload-area" onclick="document.getElementById('email-body-upload').click()">
+                            <i class="fas fa-file-code fa-3x text-muted mb-3"></i>
+                            <p>HTML-Datei hier ablegen oder klicken zum Auswählen</p>
+                            <small class="text-muted">Email-Inhalt als HTML-Datei</small>
+                        </div>
+                        <input type="file" id="email-body-upload" accept=".html,.htm" style="display: none;" onchange="uploadEmailBody()">
+                        <div id="email-body-status" class="mt-2"></div>
+                    </div>
+
+                    <!-- Logo Upload -->
+                    <div class="mb-4">
+                        <h5>3. Logo (Optional)</h5>
+                        <div class="upload-area" onclick="document.getElementById('logo-upload').click()">
+                            <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                            <p>Logo-Datei hier ablegen oder klicken zum Auswählen</p>
+                            <small class="text-muted">PNG-Datei für Inline-Logo</small>
+                        </div>
+                        <input type="file" id="logo-upload" accept=".png" style="display: none;" onchange="uploadLogo()">
+                        <div id="logo-status" class="mt-2"></div>
+                    </div>
+
+                    <!-- Attachments Upload -->
+                    <div class="mb-4">
+                        <h5>4. Anhänge (PDF-Dateien)</h5>
+                        <div class="upload-area" onclick="document.getElementById('attachments-upload').click()">
+                            <i class="fas fa-file-pdf fa-3x text-muted mb-3"></i>
+                            <p>PDF-Anhänge hier ablegen oder klicken zum Auswählen</p>
+                            <small class="text-muted">Mehrere PDF-Dateien auswählbar</small>
+                        </div>
+                        <input type="file" id="attachments-upload" accept=".pdf" multiple style="display: none;" onchange="uploadAttachments()">
+                        <div id="attachments-status" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div id="preview-section" class="config-section" style="display: none;">
+                    <h3><i class="fas fa-eye"></i> Vorschau</h3>
+                    <div id="preview-content">
+                        <p>Laden Sie zuerst alle Dateien hoch, um eine Vorschau zu sehen.</p>
+                    </div>
+                </div>
+
+                <!-- Send Section -->
+                <div id="send-section" class="config-section" style="display: none;">
+                    <h3><i class="fas fa-paper-plane"></i> Email-Versand</h3>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Achtung:</strong> Stellen Sie sicher, dass alle Konfigurationen korrekt sind, bevor Sie die Emails versenden.
+                    </div>
+                    <button type="button" class="btn btn-success btn-lg" onclick="sendEmails()">
+                        <i class="fas fa-paper-plane"></i> Emails jetzt versenden
+                    </button>
+                    <div id="send-progress" class="mt-3" style="display: none;">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="send-results" class="mt-3"></div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="text-center mt-4">
+                    <button type="button" class="btn btn-secondary me-2" id="prev-btn" onclick="previousStep()" style="display: none;">
+                        <i class="fas fa-arrow-left"></i> Zurück
+                    </button>
+                    <button type="button" class="btn btn-primary" id="next-btn" onclick="nextStep()">
+                        Weiter <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">Benachrichtigung</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentStep = 1;
+        let csvData = null;
+        let emailConfig = null;
+
+        // Get the base path for API calls
+        const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+
+        // Load configuration from localStorage on page load
+        window.onload = function() {
+            loadConfig();
+        };
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastBody = toast.querySelector('.toast-body');
+            toastBody.textContent = message;
+            
+            toast.className = `toast bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} text-white`;
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        function saveConfig() {
+            const config = {
+                email_login: document.getElementById('email-login').value,
+                smtp_server: document.getElementById('smtp-server').value,
+                smtp_port: document.getElementById('smtp-port').value,
+                email_subject: document.getElementById('email-subject').value
+            };
+            
+            // Save to localStorage (excluding password)
+            localStorage.setItem('emailConfig', JSON.stringify(config));
+            emailConfig = {
+                ...config,
+                email_password: document.getElementById('email-password').value
+            };
+            
+            showToast('Konfiguration gespeichert!', 'success');
+        }
+
+        function loadConfig() {
+            const saved = localStorage.getItem('emailConfig');
+            if (saved) {
+                const config = JSON.parse(saved);
+                document.getElementById('email-login').value = config.email_login || '';
+                document.getElementById('smtp-server').value = config.smtp_server || '';
+                document.getElementById('smtp-port').value = config.smtp_port || '465';
+                document.getElementById('email-subject').value = config.email_subject || '';
+                showToast('Konfiguration geladen!', 'success');
+            }
+        }
+
+        function updateStepIndicator() {
+            for (let i = 1; i <= 4; i++) {
+                const step = document.getElementById(`step${i}`);
+                step.className = 'step';
+                if (i < currentStep) {
+                    step.className += ' completed';
+                } else if (i === currentStep) {
+                    step.className += ' active';
+                }
+            }
+        }
+
+        function showSection(sectionId) {
+            const sections = ['config-section', 'upload-section', 'preview-section', 'send-section'];
+            sections.forEach(id => {
+                document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
+            });
+            
+            // Update navigation buttons
+            document.getElementById('prev-btn').style.display = currentStep > 1 ? 'inline-block' : 'none';
+            document.getElementById('next-btn').style.display = currentStep < 4 ? 'inline-block' : 'none';
+        }
+
+        function nextStep() {
+            if (currentStep < 4) {
+                // Validate current step before proceeding
+                if (validateCurrentStep()) {
+                    currentStep++;
+                    updateStepIndicator();
+                    showSection(`${getSectionName(currentStep)}-section`);
+                    
+                    if (currentStep === 3) {
+                        generatePreview();
+                    }
+                }
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepIndicator();
+                showSection(`${getSectionName(currentStep)}-section`);
+            }
+        }
+
+        function getSectionName(step) {
+            const names = ['config', 'upload', 'preview', 'send'];
+            return names[step - 1];
+        }
+
+        function validateCurrentStep() {
+            switch (currentStep) {
+                case 1:
+                    const requiredFields = ['email-login', 'email-password', 'smtp-server', 'email-subject'];
+                    for (let field of requiredFields) {
+                        if (!document.getElementById(field).value.trim()) {
+                            showToast(`Bitte füllen Sie das Feld "${field}" aus.`, 'error');
+                            return false;
+                        }
+                    }
+                    saveConfig();
+                    return true;
+                case 2:
+                    if (!csvData) {
+                        showToast('Bitte laden Sie eine CSV-Datei hoch.', 'error');
+                        return false;
+                    }
+                    return true;
+                case 3:
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        async function uploadCSV() {
+            const file = document.getElementById('csv-upload').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(basePath + 'upload-csv', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    csvData = result.data;
+                    document.getElementById('csv-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> CSV hochgeladen: ${csvData.length} Einträge</div>`;
+                    showToast('CSV erfolgreich hochgeladen!', 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('csv-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim CSV-Upload!', 'error');
+            }
+        }
+
+        async function uploadEmailBody() {
+            const file = document.getElementById('email-body-upload').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(basePath + 'upload-email-body', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('email-body-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> Email-Body hochgeladen</div>`;
+                    showToast('Email-Body erfolgreich hochgeladen!', 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('email-body-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Email-Body-Upload!', 'error');
+            }
+        }
+
+        async function uploadLogo() {
+            const file = document.getElementById('logo-upload').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(basePath + 'upload-logo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('logo-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> Logo hochgeladen</div>`;
+                    showToast('Logo erfolgreich hochgeladen!', 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('logo-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Logo-Upload!', 'error');
+            }
+        }
+
+        async function uploadAttachments() {
+            const files = document.getElementById('attachments-upload').files;
+            if (files.length === 0) return;
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch(basePath + 'upload-attachments', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('attachments-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Anhänge hochgeladen</div>`;
+                    showToast(`${result.uploaded_files.length} Anhänge erfolgreich hochgeladen!`, 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('attachments-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Anhang-Upload!', 'error');
+            }
+        }
+
+        async function generatePreview() {
+            if (!csvData) return;
+
+            try {
+                const response = await fetch(basePath + 'preview-emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ csv_data: csvData })
+                });
+                const result = await response.json();
+                
+                let previewHtml = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-check-circle text-success"></i> Gültige E-Mails (${result.total_valid})</h5>
+                            <div class="email-preview border rounded p-3">
+                `;
+                
+                result.valid_emails.forEach((email, index) => {
+                    previewHtml += `
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span>${index + 1}. ${email.email}</span>
+                            <small class="text-success">${email.attachment}</small>
+                        </div>
+                    `;
+                });
+                
+                previewHtml += `</div></div>`;
+                
+                if (result.total_invalid > 0) {
+                    previewHtml += `
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-exclamation-triangle text-warning"></i> Problematische E-Mails (${result.total_invalid})</h5>
+                            <div class="email-preview border rounded p-3">
+                    `;
+                    
+                    result.invalid_emails.forEach((email, index) => {
+                        previewHtml += `
+                            <div class="d-flex justify-content-between align-items-center py-1">
+                                <span>${index + 1}. ${email.email}</span>
+                                <small class="text-danger">${email.attachment} (fehlt)</small>
+                            </div>
+                        `;
+                    });
+                    
+                    previewHtml += `</div></div>`;
+                }
+                
+                previewHtml += `</div>`;
+                
+                if (result.total_valid === 0) {
+                    previewHtml += `
+                        <div class="alert alert-danger mt-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Fehler:</strong> Keine gültigen E-Mails zum Versenden gefunden!
+                        </div>
+                    `;
+                } else {
+                    previewHtml += `
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            Bereit zum Versenden von <strong>${result.total_valid}</strong> E-Mail(s).
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('preview-content').innerHTML = previewHtml;
+            } catch (error) {
+                document.getElementById('preview-content').innerHTML = 
+                    `<div class="alert alert-danger">Fehler bei der Vorschau: ${error.message}</div>`;
+            }
+        }
+
+        async function sendEmails() {
+            if (!csvData || !emailConfig) {
+                showToast('Konfiguration oder CSV-Daten fehlen!', 'error');
+                return;
+            }
+
+            // Show progress
+            document.getElementById('send-progress').style.display = 'block';
+            const progressBar = document.querySelector('.progress-bar');
+            progressBar.style.width = '0%';
+            
+            try {
+                const response = await fetch(basePath + 'send-emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        config: emailConfig,
+                        csv_data: csvData
+                    })
+                });
+                
+                progressBar.style.width = '100%';
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let resultsHtml = `
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle"></i> E-Mail-Versand abgeschlossen!</h5>
+                            <p>Erfolgreich gesendet: <strong>${result.sent_count}</strong> E-Mail(s)</p>
+                    `;
+                    
+                    if (result.failed_count > 0) {
+                        resultsHtml += `<p>Fehlgeschlagen: <strong>${result.failed_count}</strong> E-Mail(s)</p>`;
+                    }
+                    
+                    resultsHtml += `</div>`;
+                    
+                    if (result.failed_emails.length > 0) {
+                        resultsHtml += `
+                            <div class="alert alert-warning">
+                                <h6>Fehlgeschlagene E-Mails:</h6>
+                                <ul class="mb-0">
+                        `;
+                        result.failed_emails.forEach(failed => {
+                            resultsHtml += `<li>${failed.email}: ${failed.error}</li>`;
+                        });
+                        resultsHtml += `</ul></div>`;
+                    }
+                    
+                    document.getElementById('send-results').innerHTML = resultsHtml;
+                    showToast(`${result.sent_count} E-Mails erfolgreich versendet!`, 'success');
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('send-results').innerHTML = 
+                    `<div class="alert alert-danger">Fehler beim E-Mail-Versand: ${error.message}</div>`;
+                showToast('Fehler beim E-Mail-Versand!', 'error');
+            } finally {
+                setTimeout(() => {
+                    document.getElementById('send-progress').style.display = 'none';
+                }, 2000);
+            }
+        }
+
+        // Initialize
+        updateStepIndicator();
+        showSection('config-section');
+    </script>
+</body>
+</html>
