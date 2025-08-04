@@ -120,18 +120,18 @@
                 <!-- Email Creation Section -->
                 <div id="email-section" class="config-section" style="display: none;">
                     <h3><i class="fas fa-edit"></i> Email erstellen</h3>
-                    
+                    <br>
                     <!-- Email Subject -->
                     <div class="mb-4">
+                        <h5>Betreff</h5>
                         <div class="mb-3">
-                            <label for="email-subject" class="form-label">Email-Betreff</label>
-                            <input type="text" class="form-control" id="email-subject" placeholder="Email-Betreff">
+                            <input type="text" class="form-control" id="email-subject" oninput="saveEmailSubjectToStorage()">
                         </div>
                     </div>
 
                     <!-- Email Body Editor -->
                     <div class="mb-4">
-                        <h5>Email-Body (HTML-Editor)</h5>
+                        <h5>Inhalt</h5>
                         
                         <!-- Upload Option -->
                         <div class="mb-3">
@@ -161,10 +161,9 @@
                                 <textarea 
                                     class="form-control" 
                                     id="email-body-editor" 
-                                    rows="15" 
                                     placeholder="Geben Sie hier Ihren HTML-Code ein..."
                                     oninput="updateHtmlPreview(); saveEmailBodyToStorage()"
-                                    style="font-family: 'Courier New', monospace; font-size: 14px;">
+                                    style="font-family: 'Courier New', monospace; font-size: 14px; height: 400px;">
 <!DOCTYPE html>
 <html>
 <head>
@@ -201,8 +200,10 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="email-body-status" class="mt-2"></div>
                         
                         <!-- Images Status and Gallery -->
+                        <div id="images-status" class="mt-2"></div>
                         <div id="images-gallery" class="mt-3" style="display: none;">
                             <h6>Hochgeladene Bilder:</h6>
                             <div class="row" id="images-container"></div>
@@ -223,6 +224,7 @@
                             <small class="text-muted">Format: emails,attachments</small>
                         </div>
                         <input type="file" id="csv-upload" accept=".csv" style="display: none;" onchange="uploadCSV()">
+                        <div id="csv-status" class="mt-2"></div>
                     </div>
 
                     <!-- Attachments Upload -->
@@ -234,6 +236,7 @@
                             <small class="text-muted">Mehrere PDF-Dateien auswählbar</small>
                         </div>
                         <input type="file" id="attachments-upload" accept=".pdf" multiple style="display: none;" onchange="uploadAttachments()">
+                        <div id="attachments-status" class="mt-2"></div>
                     </div>
                 </div>
 
@@ -335,6 +338,12 @@
                 document.getElementById('smtp-server').value = config.smtp_server || '';
                 document.getElementById('smtp-port').value = config.smtp_port || '465';
                 showToast('Konfiguration geladen!', 'success');
+            }
+            
+            // Load email subject from localStorage
+            const savedEmailSubject = localStorage.getItem('emailSubject');
+            if (savedEmailSubject) {
+                document.getElementById('email-subject').value = savedEmailSubject;
             }
             
             // Load email body from localStorage
@@ -658,34 +667,9 @@
             localStorage.setItem('emailBody', htmlContent);
         }
 
-        async function saveEmailBodyToServer() {
-            const htmlContent = document.getElementById('email-body-editor').value;
-            
-            if (!htmlContent.trim()) {
-                showToast('Kein HTML-Inhalt zum Speichern vorhanden!', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(basePath + 'upload-email-body', {
-                    method: 'POST',
-                    headers: getHeaders(),
-                    body: JSON.stringify({ content: htmlContent })
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('email-body-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> Email-Body erfolgreich gespeichert</div>`;
-                    showToast('Email-Body erfolgreich gespeichert!', 'success');
-                } else {
-                    throw new Error(result.detail);
-                }
-            } catch (error) {
-                document.getElementById('email-body-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Speichern!', 'error');
-            }
+        function saveEmailSubjectToStorage() {
+            const emailSubject = document.getElementById('email-subject').value;
+            localStorage.setItem('emailSubject', emailSubject);
         }
 
         function formatHtml() {
@@ -776,6 +760,8 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    document.getElementById('images-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Bild(er) hochgeladen</div>`;
                     showToast(`${result.uploaded_files.length} Bild(er) erfolgreich hochgeladen!`, 'success');
                     
                     // Store images in localStorage for preview and dropdown
@@ -788,7 +774,9 @@
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                showToast(`Fehler beim Bild-Upload: ${error.message}`, 'error');
+                document.getElementById('images-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Bild-Upload!', 'error');
             }
         }
 
@@ -919,6 +907,40 @@
             }
         }
 
+        async function uploadLogo() {
+            const file = document.getElementById('logo-upload').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(basePath + 'upload-logo', {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    },
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('logo-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> Logo hochgeladen</div>`;
+                    showToast('Logo erfolgreich hochgeladen!', 'success');
+                    
+                    // Update preview with logo
+                    updateHtmlPreviewWithLogo(file);
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                document.getElementById('logo-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Logo-Upload!', 'error');
+            }
+        }
+
         async function uploadAttachments() {
             const files = document.getElementById('attachments-upload').files;
             if (files.length === 0) return;
@@ -939,12 +961,16 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    document.getElementById('attachments-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Anhänge hochgeladen</div>`;
                     showToast(`${result.uploaded_files.length} Anhänge erfolgreich hochgeladen!`, 'success');
                 } else {
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                showToast(`Fehler beim Anhang-Upload: ${error.message}`, 'error');
+                document.getElementById('attachments-status').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
+                showToast('Fehler beim Anhang-Upload!', 'error');
             }
         }
 
