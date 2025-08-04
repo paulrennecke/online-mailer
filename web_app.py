@@ -21,7 +21,7 @@ from typing import List, Dict
 import json
 from pydantic import BaseModel
 
-app = FastAPI(title="Simple Mailer", description="Email Versand Tool")
+app = FastAPI(title="Attachments Mailer", description="Email Versand Tool")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -165,6 +165,108 @@ async def upload_csv(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Fehler beim Lesen der CSV: {str(e)}")
 
+@app.post("/upload-data-file")
+async def upload_data_file(request: Request, file: UploadFile = File(...)):
+    """Upload CSV or XLSX file and return columns for selection"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        contents = await file.read()
+        
+        # Determine file type and read accordingly
+        if file.filename.lower().endswith('.csv'):
+            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+        elif file.filename.lower().endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            raise HTTPException(status_code=400, detail="Nur CSV- und XLSX-Dateien werden unterstützt")
+        
+        # Store original dataframe in session
+        session["original_dataframe"] = df.to_dict('records')
+        session["dataframe_columns"] = list(df.columns)
+        
+        # Return columns for selection and preview data (first 5 rows)
+        preview_data = df.head(5).to_dict('records')
+        
+        return {
+            "success": True, 
+            "columns": list(df.columns),
+            "preview_data": preview_data,
+            "total_rows": len(df),
+            "filename": file.filename
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Fehler beim Lesen der Datei: {str(e)}")
+
+@app.post("/select-columns")
+async def select_columns(request: Request):
+    """Process column selection and create final data structure"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        data = await request.json()
+        email_column = data.get('email_column')
+        attachment_column = data.get('attachment_column')
+        
+        if not email_column or not attachment_column:
+            raise HTTPException(status_code=400, detail="Email- und Anhang-Spalten müssen ausgewählt werden")
+        
+        # Get original dataframe
+        original_data = session.get("original_dataframe", [])
+        if not original_data:
+            raise HTTPException(status_code=400, detail="Keine Daten verfügbar. Bitte laden Sie zuerst eine Datei hoch.")
+        
+        # Create processed data with selected columns
+        processed_data = []
+        for row in original_data:
+            if pd.notna(row.get(email_column)) and pd.notna(row.get(attachment_column)):
+                processed_data.append({
+                    "emails": str(row[email_column]).strip(),
+                    "attachments": str(row[attachment_column]).strip()
+                })
+        
+        # Store processed data in session
+        session["csv_data"] = processed_data
+        session["selected_columns"] = {
+            "email_column": email_column,
+            "attachment_column": attachment_column
+        }
+        
+        return {
+            "success": True, 
+            "data": processed_data,
+            "processed_count": len(processed_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Fehler bei der Spaltenverarbeitung: {str(e)}")
+
+@app.post("/update-table-data")
+async def update_table_data(request: Request):
+    """Update table data from frontend edits"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        data = await request.json()
+        table_data = data.get('table_data', [])
+        
+        # Validate data structure
+        for row in table_data:
+            if not row.get('emails') or not row.get('attachments'):
+                continue  # Skip empty rows
+            
+        # Store updated data in session
+        session["csv_data"] = [row for row in table_data if row.get('emails') and row.get('attachments')]
+        
+        return {
+            "success": True, 
+            "updated_count": len(session["csv_data"])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Fehler beim Aktualisieren der Tabellendaten: {str(e)}")
+
 @app.post("/upload-attachments")
 async def upload_attachments(request: Request, files: List[UploadFile] = File(...)):
     """Upload attachments for current session"""
@@ -198,9 +300,105 @@ async def upload_attachments(request: Request, files: List[UploadFile] = File(..
                     "original_name": file.filename
                 })
         
-        return {"success": True, "uploaded_files": uploaded_files}
+        # Return original filenames for frontend processing
+        original_filenames = [item["original_name"] for item in uploaded_files]
+        
+        return {"success": True, "uploaded_files": original_filenames}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Fehler beim Hochladen der Anhänge: {str(e)}")
+
+@app.get("/list-attachments")
+async def list_attachments(request: Request):
+    """List uploaded attachments for current session"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        attachments = session.get("attachments", {})
+        file_list = [info["original_name"] for info in attachments.values()]
+        
+        return {
+            "success": True,
+            "files": file_list,
+            "count": len(file_list)
+        }
+        
+    except Exception as e:
+        logging.error(f"List attachments error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing attachments: {str(e)}")
+
+@app.delete("/remove-attachment")
+async def remove_attachment(request: Request):
+    """Remove a specific attachment by filename"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        body = await request.json()
+        filename = body.get("filename")
+        
+        if not filename:
+            raise HTTPException(status_code=400, detail="Filename is required")
+        
+        attachments = session.get("attachments", {})
+        
+        # Find attachment by original name
+        attachment_to_remove = None
+        for unique_name, info in attachments.items():
+            if info["original_name"] == filename:
+                attachment_to_remove = unique_name
+                break
+        
+        if not attachment_to_remove:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Remove file from filesystem
+        file_path = attachments[attachment_to_remove]["path"]
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        # Remove from session
+        del attachments[attachment_to_remove]
+        
+        return {
+            "success": True,
+            "message": f"File '{filename}' removed successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Remove attachment error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error removing attachment: {str(e)}")
+
+@app.delete("/remove-all-attachments")
+async def remove_all_attachments(request: Request):
+    """Remove all attachments for current session"""
+    try:
+        session_id = get_session_id(request)
+        session = user_sessions[session_id]
+        
+        attachments = session.get("attachments", {})
+        removed_count = len(attachments)
+        
+        # Remove all files from filesystem
+        for unique_name, info in attachments.items():
+            file_path = info["path"]
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        # Clear attachments from session
+        session["attachments"] = {}
+        
+        return {
+            "success": True,
+            "message": f"Removed {removed_count} attachments successfully",
+            "removed_count": removed_count
+        }
+        
+    except Exception as e:
+        logging.error(f"Remove all attachments error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error removing all attachments: {str(e)}")
 
 @app.post("/upload-email-body")
 async def upload_email_body(request: Request):
@@ -443,10 +641,12 @@ async def send_emails(request: Request, request_data: dict):
                         if f"cid:{image_cid}" in processed_email_body:
                             # Add image as inline attachment
                             with open(file_path, 'rb') as img:
-                                image = MIMEImage(img.read())
+                                image_data = img.read()
+                                image = MIMEImage(image_data)
                                 image.add_header('Content-ID', f'<{image_cid}>')
                                 image.add_header('Content-Disposition', 'inline', filename=original_name)
                                 msg.attach(image)
+                                logging.info(f"Attached image {original_name} with CID {image_cid} to email for {email}")
                                 
                     except Exception as img_err:
                         logging.error(f"Failed to attach image {filename}: {str(img_err)}")

@@ -1,4 +1,4 @@
-# Simple Mailer - Web Application
+# Attachments Mailer - Web Application
 
 Eine FastAPI-basierte Webanwendung für den E-Mail-Versand mit personalisierten Anhängen.
 
@@ -92,7 +92,7 @@ user2@example.com,DEF456
 ## Verzeichnisstruktur
 
 ```
-simple-mailer/
+attachments-mailer/
 ├── web_app.py              # FastAPI Hauptanwendung
 ├── run_local.py            # Lokaler Entwicklungsserver
 ├── install_uberspace.sh    # Uberspace Installationsskript
@@ -119,13 +119,13 @@ simple-mailer/
 
 ```bash
 # Service Status prüfen
-supervisorctl status simple-mailer
+supervisorctl status attachments-mailer
 
 # Service neustarten
-supervisorctl restart simple-mailer
+supervisorctl restart attachments-mailer
 
 # Logs anzeigen
-tail -f ~/logs/simple-mailer.log
+tail -f ~/logs/attachments-mailer.log
 
 # Update durchführen
 cd ~/html/send-mail && ./update.sh
@@ -135,8 +135,8 @@ cd ~/html/send-mail && ./update.sh
 
 Bei Problemen prüfen Sie:
 
-1. Service-Status: `supervisorctl status simple-mailer`
-2. Logs: `tail -f ~/logs/simple-mailer.log`
+1. Service-Status: `supervisorctl status attachments-mailer`
+2. Logs: `tail -f ~/logs/attachments-mailer.log`
 3. Port-Konfiguration in `.htaccess`
 4. Apache-Konfiguration für mod_proxy
 

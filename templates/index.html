@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Mailer - Email Versand Tool</title>
+    <title>Mailer - Email Versand Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -55,6 +55,48 @@
             padding: 1.5rem;
             margin-bottom: 1rem;
         }
+        .editable-cell {
+            border: none;
+            background: transparent;
+            width: 100%;
+            padding: 0.25rem;
+        }
+        .editable-cell:focus {
+            outline: 2px solid #0d6efd;
+            border-radius: 0.25rem;
+        }
+        .editable-cell.is-invalid {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .editable-cell.is-invalid:focus {
+            outline: 2px solid #dc3545;
+            border-radius: 0.25rem;
+        }
+        .table-actions {
+            white-space: nowrap;
+        }
+        .sticky-top {
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+        }
+        .row-found {
+            background-color: #d1e7dd !important;
+            border-left: 4px solid #198754;
+        }
+        .row-missing {
+            background-color: #f8d7da !important;
+            border-left: 4px solid #dc3545;
+        }
+        .row-partial {
+            background-color: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+        }
+        .attachment-status {
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -63,7 +105,7 @@
             <div class="col-12">
                 <h1 class="text-center mb-4">
                     <i class="fas fa-envelope text-primary"></i>
-                    Simple Mailer
+                    Mailer
                 </h1>
                 
                 <!-- Step Indicator -->
@@ -215,21 +257,11 @@
                 <div id="upload-section" class="config-section" style="display: none;">
                     <h3><i class="fas fa-upload"></i> Dateien hochladen</h3>
                     
-                    <!-- CSV Upload -->
-                    <div class="mb-4">
-                        <h5>1. CSV-Datei mit Email-Adressen und Anhängen</h5>
-                        <div class="upload-area" onclick="document.getElementById('csv-upload').click()">
-                            <i class="fas fa-file-csv fa-3x text-muted mb-3"></i>
-                            <p>CSV-Datei hier ablegen oder klicken zum Auswählen</p>
-                            <small class="text-muted">Format: emails,attachments</small>
-                        </div>
-                        <input type="file" id="csv-upload" accept=".csv" style="display: none;" onchange="uploadCSV()">
-                        <div id="csv-status" class="mt-2"></div>
-                    </div>
-
                     <!-- Attachments Upload -->
                     <div class="mb-4">
-                        <h5>2. Anhänge (PDF-Dateien)</h5>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>1. Anhänge (PDF-Dateien)</h5>
+                        </div>
                         <div class="upload-area" onclick="document.getElementById('attachments-upload').click()">
                             <i class="fas fa-file-pdf fa-3x text-muted mb-3"></i>
                             <p>PDF-Anhänge hier ablegen oder klicken zum Auswählen</p>
@@ -237,6 +269,101 @@
                         </div>
                         <input type="file" id="attachments-upload" accept=".pdf" multiple style="display: none;" onchange="uploadAttachments()">
                         <div id="attachments-status" class="mt-2"></div>
+                    </div>
+
+                    <!-- Editable Data Table - Always Visible -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>2. Email-Adressen und Anhänge verwalten</h5>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#import-options" aria-expanded="false">
+                                    <i class="fas fa-file-import"></i> Datei importieren
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success" onclick="addTableRow()">
+                                    <i class="fas fa-plus"></i> Zeile hinzufügen
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Import Options (collapsed by default) -->
+                        <div class="collapse" id="import-options">
+                            <div class="card card-body mb-3">
+                                <h6><i class="fas fa-file-excel"></i> Datei importieren</h6>
+                                <div class="upload-area" onclick="document.getElementById('data-upload').click()">
+                                    <i class="fas fa-file-excel fa-2x text-muted mb-2"></i>
+                                    <p class="mb-1">CSV- oder XLSX-Datei hier ablegen oder klicken zum Auswählen</p>
+                                    <small class="text-muted">Unterstützte Formate: .csv, .xlsx, .xls</small>
+                                </div>
+                                <input type="file" id="data-upload" accept=".csv,.xlsx,.xls" style="display: none;" onchange="uploadDataFile()">
+                                <div id="data-status" class="mt-2"></div>
+                                
+                                <!-- Column Selection -->
+                                <div id="column-selection" class="mt-3" style="display: none;">
+                                    <h6>Spalten auswählen:</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="email-column-select" class="form-label">Email-Spalte</label>
+                                            <select class="form-select" id="email-column-select">
+                                                <option value="">Bitte wählen...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="attachment-column-select" class="form-label">Anhang-Spalte</label>
+                                            <select class="form-select" id="attachment-column-select">
+                                                <option value="">Bitte wählen...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" class="btn btn-primary" onclick="processColumnSelection()">
+                                            <i class="fas fa-check"></i> Spalten übernehmen
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Data Preview -->
+                                <div id="data-preview" class="mt-3" style="display: none;">
+                                    <h6>Datenvorschau (erste 5 Zeilen):</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead id="preview-header"></thead>
+                                            <tbody id="preview-body"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Always Visible Editable Data Table -->
+                        <div id="editable-table-container">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-bordered" id="editable-table">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th class="text-center">#</th>
+                                            <th>Email-Adresse</th>
+                                            <th>Anhang</th>
+                                            <th class="text-center">Status</th>
+                                            <th class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="clearAllTableRows()" title="Alle Zeilen löschen">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="editable-table-body">
+                                        <!-- Initial empty rows will be added by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Tragen Sie Email-Adressen und Anhang-Namen ein oder importieren Sie Daten aus einer CSV/XLSX-Datei.
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -255,9 +382,14 @@
                         <i class="fas fa-exclamation-triangle"></i>
                         <strong>Achtung:</strong> Stellen Sie sicher, dass alle Konfigurationen korrekt sind, bevor Sie die Emails versenden.
                     </div>
-                    <button type="button" class="btn btn-success btn-lg" onclick="sendEmails()">
-                        <i class="fas fa-paper-plane"></i> Emails jetzt versenden
-                    </button>
+                    <div id="send-controls">
+                        <button type="button" class="btn btn-success btn-lg me-2" id="send-btn" onclick="sendEmails()">
+                            <i class="fas fa-paper-plane"></i> Emails jetzt versenden
+                        </button>
+                        <button type="button" class="btn btn-danger btn-lg" id="cancel-btn" onclick="cancelSending()" style="display: none;">
+                            <i class="fas fa-stop"></i> Abbrechen
+                        </button>
+                    </div>
                     <div id="send-progress" class="mt-3" style="display: none;">
                         <div class="progress">
                             <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
@@ -306,6 +438,12 @@
         window.onload = function() {
             loadConfig();
             updateHtmlPreview(); // Initialize HTML preview
+            initializeEditableTable(); // Initialize the editable table with empty rows
+            
+            // Update HTML preview again after a short delay to ensure images are loaded
+            setTimeout(() => {
+                updateHtmlPreview();
+            }, 500);
         };
 
         // Helper function to get headers with session ID
@@ -317,6 +455,54 @@
                 headers['Content-Type'] = contentType;
             }
             return headers;
+        }
+
+        // Email validation function
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email.trim());
+        }
+
+        function validateEmailFormat(email) {
+            const trimmedEmail = email.trim();
+            
+            // Basic format check
+            if (!isValidEmail(trimmedEmail)) {
+                return {
+                    valid: false,
+                    error: 'Ungültiges E-Mail-Format'
+                };
+            }
+            
+            // Additional checks
+            if (trimmedEmail.length > 254) {
+                return {
+                    valid: false,
+                    error: 'E-Mail-Adresse zu lang (max. 254 Zeichen)'
+                };
+            }
+            
+            // Check for multiple @ symbols
+            if ((trimmedEmail.match(/@/g) || []).length !== 1) {
+                return {
+                    valid: false,
+                    error: 'E-Mail-Adresse darf nur ein @ enthalten'
+                };
+            }
+            
+            // Check local part length (before @)
+            const localPart = trimmedEmail.split('@')[0];
+            if (localPart.length > 64) {
+                return {
+                    valid: false,
+                    error: 'Lokaler Teil der E-Mail zu lang (max. 64 Zeichen)'
+                };
+            }
+            
+            return {
+                valid: true,
+                error: null
+            };
         }
 
         function showToast(message, type = 'info') {
@@ -359,7 +545,17 @@
                 updateImageDropdown();
                 
                 showToast(`${storedImages.length} Bild(er) aus LocalStorage geladen`, 'success');
+                
+                // Re-upload images to server if they aren't already there
+                setTimeout(() => {
+                    reuploadImagesIfNeeded(storedImages);
+                }, 1000);
             }
+            
+            // Load existing attachments on page load
+            setTimeout(() => {
+                autoCheckAttachments();
+            }, 500);
         }
 
         function updateStepIndicator() {
@@ -414,10 +610,10 @@
             return names[step - 1];
         }
 
-        function validateCurrentStep() {
+        async function validateCurrentStep() {
             switch (currentStep) {
                 case 1:
-                    return validateAndTestConfig();
+                    return await validateAndTestConfig();
                 case 2:
                     // Validate email subject
                     if (!document.getElementById('email-subject').value.trim()) {
@@ -430,13 +626,24 @@
                         return false;
                     }
                     // Save HTML content
-                    saveEmailBody();
+                    await saveEmailBody();
                     return true;
                 case 3:
-                    if (!csvData) {
-                        showToast('Bitte laden Sie eine CSV-Datei hoch.', 'error');
+                    // First save any table data
+                    await saveTableData();
+                    
+                    if (!csvData || csvData.length === 0) {
+                        showToast('Bitte tragen Sie mindestens einen Email-Eintrag in die Tabelle ein.', 'error');
                         return false;
                     }
+                    
+                    // Validate all email addresses in csvData
+                    const invalidEmails = csvData.filter(row => !validateEmailFormat(row.emails).valid);
+                    if (invalidEmails.length > 0) {
+                        showToast(`${invalidEmails.length} ungültige E-Mail-Adresse(n) gefunden. Bitte korrigieren Sie diese in der Tabelle.`, 'error');
+                        return false;
+                    }
+                    
                     return true;
                 case 4:
                     return true;
@@ -494,15 +701,31 @@
             }
         }
 
-        async function uploadCSV() {
-            const file = document.getElementById('csv-upload').files[0];
+
+
+        let fileColumns = [];
+        let previewData = [];
+
+        function initializeEditableTable() {
+            // Initialize table with 3 empty rows for manual input
+            const tableBody = document.getElementById('editable-table-body');
+            tableBody.innerHTML = '';
+            
+            // Add a empty rows to start with
+            addTableRowWithData('', '', -1);
+        }
+
+        async function uploadDataFile() {
+            const file = document.getElementById('data-upload').files[0];
             if (!file) return;
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                const response = await fetch(basePath + 'upload-csv', {
+                showToast('Datei wird verarbeitet...', 'info');
+                
+                const response = await fetch(basePath + 'upload-data-file', {
                     method: 'POST',
                     headers: {
                         'X-Session-ID': sessionId
@@ -512,50 +735,424 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    csvData = result.data;
-                    document.getElementById('csv-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> CSV hochgeladen: ${csvData.length} Einträge</div>`;
-                    showToast('CSV erfolgreich hochgeladen!', 'success');
+                    fileColumns = result.columns;
+                    previewData = result.preview_data;
+                    
+                    document.getElementById('data-status').innerHTML = 
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.filename} hochgeladen: ${result.total_rows} Zeilen</div>`;
+                    
+                    // Show column selection and expand import options
+                    showColumnSelection();
+                    showDataPreview();
+                    
+                    // Expand import options card if not already expanded
+                    const importOptions = document.getElementById('import-options');
+                    if (!importOptions.classList.contains('show')) {
+                        const bsCollapse = new bootstrap.Collapse(importOptions, { show: true });
+                    }
+                    
+                    showToast(`${result.filename} erfolgreich hochgeladen!`, 'success');
                 } else {
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                document.getElementById('csv-status').innerHTML = 
+                document.getElementById('data-status').innerHTML = 
                     `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim CSV-Upload!', 'error');
+                showToast('Fehler beim Datei-Upload!', 'error');
             }
         }
 
-        async function uploadEmailBody() {
-            const file = document.getElementById('email-body-upload').files[0];
-            if (!file) return;
+        function showColumnSelection() {
+            const emailSelect = document.getElementById('email-column-select');
+            const attachmentSelect = document.getElementById('attachment-column-select');
+            
+            // Clear previous options
+            emailSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+            attachmentSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+            
+            // Add column options
+            fileColumns.forEach(column => {
+                const option1 = new Option(column, column);
+                const option2 = new Option(column, column);
+                emailSelect.add(option1);
+                attachmentSelect.add(option2);
+            });
+            
+            // Auto-select if columns match common names
+            const emailKeywords = ['email', 'e-mail', 'mail', 'emails'];
+            const attachmentKeywords = ['attachment', 'anhang', 'file', 'datei', 'pdf'];
+            
+            fileColumns.forEach(column => {
+                const lowerColumn = column.toLowerCase();
+                if (emailKeywords.some(keyword => lowerColumn.includes(keyword))) {
+                    emailSelect.value = column;
+                }
+                if (attachmentKeywords.some(keyword => lowerColumn.includes(keyword))) {
+                    attachmentSelect.value = column;
+                }
+            });
+            
+            document.getElementById('column-selection').style.display = 'block';
+        }
 
-            const formData = new FormData();
-            formData.append('file', file);
+        function showDataPreview() {
+            const header = document.getElementById('preview-header');
+            const body = document.getElementById('preview-body');
+            
+            // Create header
+            header.innerHTML = '<tr>' + fileColumns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+            
+            // Create body with preview data
+            body.innerHTML = '';
+            previewData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = fileColumns.map(col => `<td>${row[col] || ''}</td>`).join('');
+                body.appendChild(tr);
+            });
+            
+            document.getElementById('data-preview').style.display = 'block';
+        }
 
+        async function processColumnSelection() {
+            const emailColumn = document.getElementById('email-column-select').value;
+            const attachmentColumn = document.getElementById('attachment-column-select').value;
+            
+            if (!emailColumn || !attachmentColumn) {
+                showToast('Bitte wählen Sie beide Spalten aus!', 'error');
+                return;
+            }
+            
+            if (emailColumn === attachmentColumn) {
+                showToast('Email- und Anhang-Spalte müssen unterschiedlich sein!', 'error');
+                return;
+            }
+            
             try {
-                const response = await fetch(basePath + 'upload-email-body', {
+                showToast('Verarbeite Spaltenauswahl...', 'info');
+                
+                const response = await fetch(basePath + 'select-columns', {
                     method: 'POST',
-                    headers: {
-                        'X-Session-ID': sessionId
-                    },
-                    body: formData
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        email_column: emailColumn,
+                        attachment_column: attachmentColumn
+                    })
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById('email-body-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> Email-Body hochgeladen</div>`;
-                    showToast('Email-Body erfolgreich hochgeladen!', 'success');
+                    // Clear current table and add imported data
+                    const tableBody = document.getElementById('editable-table-body');
+                    tableBody.innerHTML = '';
+                    
+                    // Validate email addresses and add imported data to table
+                    let validCount = 0;
+                    let invalidEmails = [];
+                    
+                    result.data.forEach((row, index) => {
+                        const emailValidation = validateEmailFormat(row.emails);
+                        if (emailValidation.valid) {
+                            addTableRowWithData(row.emails, row.attachments, index);
+                            validCount++;
+                        } else {
+                            invalidEmails.push({
+                                email: row.emails,
+                                error: emailValidation.error,
+                                attachment: row.attachments,
+                                index: index
+                            });
+                        }
+                    });
+
+                    // Add a empty rows for additional manual entries
+                    addTableRowWithData('', '', -1);
+                    
+                    // Update csvData with only valid emails
+                    csvData = result.data.filter(row => validateEmailFormat(row.emails).valid);
+                    
+                    // Create status message
+                    let statusMessage = `<div class="alert alert-success"><i class="fas fa-check"></i> Spalten verarbeitet: ${validCount} gültige Einträge importiert</div>`;
+                    
+                    if (invalidEmails.length > 0) {
+                        statusMessage += `<div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <strong>Ungültige E-Mail-Adressen gefunden:</strong>
+                            <ul class="mb-0 mt-2">`;
+                        invalidEmails.forEach(invalid => {
+                            statusMessage += `<li><strong>${invalid.email}</strong>: ${invalid.error}</li>`;
+                        });
+                        statusMessage += `</ul></div>`;
+                    }
+                    
+                    document.getElementById('data-status').innerHTML = statusMessage;
+                    
+                    // Collapse import options
+                    const importOptions = document.getElementById('import-options');
+                    if (importOptions.classList.contains('show')) {
+                        const bsCollapse = new bootstrap.Collapse(importOptions, { hide: true });
+                    }
+                    
+                    if (invalidEmails.length > 0) {
+                        showToast(`${validCount} gültige Einträge importiert, ${invalidEmails.length} ungültige E-Mail-Adressen ignoriert`, 'warning');
+                    } else {
+                        showToast(`${validCount} Einträge erfolgreich importiert!`, 'success');
+                    }
+                    
+                    // Auto-check attachments after importing data
+                    autoCheckAttachments();
                 } else {
                     throw new Error(result.detail);
                 }
             } catch (error) {
-                document.getElementById('email-body-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Email-Body-Upload!', 'error');
+                showToast(`Fehler bei der Spaltenverarbeitung: ${error.message}`, 'error');
             }
         }
+
+        function showEditableTable(data) {
+            // This function is now mainly used for loading saved data
+            const tableBody = document.getElementById('editable-table-body');
+            tableBody.innerHTML = '';
+            
+            data.forEach((row, index) => {
+                addTableRowWithData(row.emails, row.attachments, index);
+            });
+            
+            // Always add a empty rows for additional entries
+            addTableRowWithData('', '', -1);
+        }
+
+        function addTableRow() {
+            addTableRowWithData('', '', -1);
+        }
+
+        function addTableRowWithData(email, attachment, index) {
+            const tableBody = document.getElementById('editable-table-body');
+            const row = tableBody.insertRow();
+            const rowNumber = tableBody.rows.length;
+            
+            row.innerHTML = `
+                <td class="text-center">
+                    <span class="row-number text-muted">${rowNumber}</span>
+                </td>
+                <td>
+                    <input type="email" class="form-control editable-cell" 
+                           value="${email}" 
+                           placeholder="email@example.com"
+                           onchange="validateAndClearRowStatus(this)" 
+                           onblur="validateAndClearRowStatus(this)">
+                </td>
+                <td>
+                    <input type="text" class="form-control editable-cell" 
+                           value="${attachment}" 
+                           placeholder="dateiname (ohne .pdf)"
+                           onchange="clearRowStatus(this)">
+                </td>
+                <td class="text-center status-column">
+                    <span class="status-indicator text-muted">-</span>
+                </td>
+                <td class="text-center table-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="removeTableRow(this)" title="Zeile löschen">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+        }
+
+        function removeTableRow(button) {
+            if (confirm('Möchten Sie diese Zeile wirklich löschen?')) {
+                button.closest('tr').remove();
+                updateRowNumbers();
+                autoCheckAttachments();
+            }
+        }
+
+        function clearAllTableRows() {
+            if (confirm('Möchten Sie wirklich alle Zeilen löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+                const tableBody = document.getElementById('editable-table-body');
+                tableBody.innerHTML = '';
+                
+                // Add one empty row after clearing
+                addTableRowWithData('', '', -1);
+                
+                // Clear csvData
+                csvData = [];
+                
+                // Update status and show feedback
+                autoCheckAttachments();
+                showToast('Alle Tabellenzeilen wurden gelöscht.', 'info');
+            }
+        }
+
+        function updateRowNumbers() {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            rows.forEach((row, index) => {
+                const rowNumberSpan = row.querySelector('.row-number');
+                if (rowNumberSpan) {
+                    rowNumberSpan.textContent = index + 1;
+                }
+            });
+        }
+
+        function clearRowStatus(inputElement) {
+            // Remove status indicators and row classes when a cell is edited
+            const row = inputElement.closest('tr');
+            row.classList.remove('row-found', 'row-missing', 'row-partial');
+            
+            // Reset status indicator in the status column
+            const statusIndicator = row.querySelector('.status-indicator');
+            if (statusIndicator) {
+                statusIndicator.className = 'status-indicator text-muted';
+                statusIndicator.innerHTML = '-';
+                statusIndicator.title = '';
+            }
+            
+            // Auto-check attachments after a short delay
+            autoCheckAttachments();
+        }
+
+        function validateAndClearRowStatus(inputElement) {
+            const row = inputElement.closest('tr');
+            const email = inputElement.value.trim();
+            
+            // Clear existing status first
+            clearRowStatus(inputElement);
+            
+            // Validate email if not empty
+            if (email) {
+                const validation = validateEmailFormat(email);
+                if (!validation.valid) {
+                    // Show email validation error
+                    inputElement.classList.add('is-invalid');
+                    inputElement.title = validation.error;
+                    
+                    // Update status indicator
+                    const statusIndicator = row.querySelector('.status-indicator');
+                    if (statusIndicator) {
+                        statusIndicator.className = 'status-indicator text-danger';
+                        statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Ungültig';
+                        statusIndicator.title = validation.error;
+                    }
+                    
+                    // Add row styling
+                    row.classList.add('row-missing');
+                } else {
+                    // Valid email
+                    inputElement.classList.remove('is-invalid');
+                    inputElement.title = '';
+                }
+            } else {
+                // Empty email
+                inputElement.classList.remove('is-invalid');
+                inputElement.title = '';
+            }
+        }
+
+        // Debounced function to auto-check attachments
+        let autoCheckTimeout;
+        function autoCheckAttachments() {
+            // Clear previous timeout
+            if (autoCheckTimeout) {
+                clearTimeout(autoCheckTimeout);
+            }
+            
+            // Set new timeout to check after 1 second of inactivity
+            autoCheckTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(basePath + 'list-attachments', {
+                        method: 'GET',
+                        headers: getHeaders()
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success && result.files) {
+                        checkTableRowsAgainstAttachments(result.files);
+                    }
+                } catch (error) {
+                    // Silent error - don't show toast for auto-check failures
+                    console.log('Auto-check failed:', error.message);
+                }
+            }, 1000);
+        }
+
+        async function saveTableData() {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            const tableData = [];
+            const invalidEmails = [];
+            
+            rows.forEach(row => {
+                const emailInput = row.querySelector('td:nth-child(2) input');
+                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                
+                if (emailInput && attachmentInput) {
+                    const email = emailInput.value.trim();
+                    const attachment = attachmentInput.value.trim();
+                    
+                    if (email && attachment) {
+                        // Validate email format
+                        const validation = validateEmailFormat(email);
+                        if (validation.valid) {
+                            tableData.push({
+                                emails: email,
+                                attachments: attachment
+                            });
+                        } else {
+                            invalidEmails.push({
+                                email: email,
+                                error: validation.error,
+                                attachment: attachment
+                            });
+                        }
+                    }
+                }
+            });
+            
+            // Show warning if invalid emails found
+            if (invalidEmails.length > 0) {
+                let warningMessage = `Ungültige E-Mail-Adressen gefunden:\n`;
+                invalidEmails.forEach(invalid => {
+                    warningMessage += `• ${invalid.email}: ${invalid.error}\n`;
+                });
+                warningMessage += `\nNur gültige E-Mail-Adressen werden gespeichert. Möchten Sie fortfahren?`;
+                
+                if (!confirm(warningMessage)) {
+                    return;
+                }
+            }
+            
+            try {
+                showToast('Speichere Tabellendaten...', 'info');
+                
+                const response = await fetch(basePath + 'update-table-data', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        table_data: tableData
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    csvData = tableData;
+                    
+                    if (tableData.length > 0) {
+                        showToast(`${result.updated_count} Einträge erfolgreich gespeichert!`, 'success');
+                    } else {
+                        showToast('Tabelle ist leer - keine Daten gespeichert.', 'info');
+                    }
+                } else {
+                    throw new Error(result.detail);
+                }
+            } catch (error) {
+                showToast(`Fehler beim Speichern: ${error.message}`, 'error');
+            }
+        }
+
+
 
         async function uploadEmailBodyFile() {
             const file = document.getElementById('email-body-upload').files[0];
@@ -750,6 +1347,8 @@
             }
 
             try {
+                showToast('Bilder werden hochgeladen...', 'info');
+                
                 const response = await fetch(basePath + 'upload-images', {
                     method: 'POST',
                     headers: {
@@ -761,7 +1360,7 @@
                 
                 if (result.success) {
                     document.getElementById('images-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Bild(er) hochgeladen</div>`;
+                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Bild(er) erfolgreich hochgeladen und für E-Mail-Versand vorbereitet</div>`;
                     showToast(`${result.uploaded_files.length} Bild(er) erfolgreich hochgeladen!`, 'success');
                     
                     // Store images in localStorage for preview and dropdown
@@ -770,6 +1369,9 @@
                     // Update gallery and dropdown immediately
                     updateImagesGallery();
                     updateImageDropdown();
+                    
+                    // Refresh HTML preview to ensure images are properly displayed
+                    updateHtmlPreview();
                 } else {
                     throw new Error(result.detail);
                 }
@@ -907,39 +1509,53 @@
             }
         }
 
-        async function uploadLogo() {
-            const file = document.getElementById('logo-upload').files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
+        async function reuploadImagesIfNeeded(storedImages) {
+            if (storedImages.length === 0) return;
+            
             try {
-                const response = await fetch(basePath + 'upload-logo', {
-                    method: 'POST',
-                    headers: {
-                        'X-Session-ID': sessionId
-                    },
-                    body: formData
-                });
-                const result = await response.json();
+                // Convert data URLs back to files and re-upload to server
+                const files = [];
+                for (const image of storedImages) {
+                    try {
+                        // Convert data URL to blob
+                        const response = await fetch(image.dataUrl);
+                        const blob = await response.blob();
+                        
+                        // Create file object
+                        const file = new File([blob], image.name, { type: blob.type });
+                        files.push(file);
+                    } catch (err) {
+                        console.warn(`Could not convert image ${image.name}:`, err);
+                    }
+                }
                 
-                if (result.success) {
-                    document.getElementById('logo-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> Logo hochgeladen</div>`;
-                    showToast('Logo erfolgreich hochgeladen!', 'success');
+                if (files.length > 0) {
+                    const formData = new FormData();
+                    files.forEach(file => {
+                        formData.append('files', file);
+                    });
                     
-                    // Update preview with logo
-                    updateHtmlPreviewWithLogo(file);
-                } else {
-                    throw new Error(result.detail);
+                    // Silently re-upload images to server
+                    const response = await fetch(basePath + 'upload-images', {
+                        method: 'POST',
+                        headers: {
+                            'X-Session-ID': sessionId
+                        },
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log(`Re-uploaded ${result.uploaded_files.length} images to server for email sending`);
+                        showToast(`${result.uploaded_files.length} Bild(er) für E-Mail-Versand vorbereitet`, 'success');
+                    }
                 }
             } catch (error) {
-                document.getElementById('logo-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Logo-Upload!', 'error');
+                console.warn('Could not re-upload images to server:', error);
             }
         }
+
+
 
         async function uploadAttachments() {
             const files = document.getElementById('attachments-upload').files;
@@ -974,18 +1590,205 @@
             }
         }
 
+
+
+
+
+
+
+
+        function clearAllAttachmentStatus() {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                row.classList.remove('row-found', 'row-missing', 'row-partial');
+                const statusCell = row.querySelector('td:nth-child(4)');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="text-muted">-</span>';
+                    statusCell.title = '';
+                }
+            });
+        }
+
+        function checkTableRowsAgainstAttachments(uploadedFiles) {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            let foundCount = 0;
+            let missingCount = 0;
+            let totalRows = 0;
+            
+            rows.forEach(row => {
+                const emailInput = row.querySelector('td:nth-child(2) input');
+                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                const statusCell = row.querySelector('td:nth-child(4)');
+                
+                const email = emailInput.value.trim();
+                const attachment = attachmentInput.value.trim();
+                
+                // Only check rows that have both email and attachment filled
+                if (email && attachment) {
+                    totalRows++;
+                    
+                    // First check email validity
+                    const emailValidation = validateEmailFormat(email);
+                    
+                    // Remove existing status classes
+                    row.classList.remove('row-found', 'row-missing', 'row-partial');
+                    
+                    if (!emailValidation.valid) {
+                        // Invalid email format
+                        row.classList.add('row-missing');
+                        missingCount++;
+                        
+                        // Set status in dedicated status column
+                        statusCell.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Ungültige E-Mail</span>';
+                        statusCell.title = emailValidation.error;
+                        
+                        // Mark email input as invalid
+                        emailInput.classList.add('is-invalid');
+                        emailInput.title = emailValidation.error;
+                    } else {
+                        // Valid email, now check attachment
+                        emailInput.classList.remove('is-invalid');
+                        emailInput.title = '';
+                        
+                        const attachmentFound = checkAttachmentExists(attachment, uploadedFiles);
+                        
+                        if (attachmentFound.found) {
+                            row.classList.add('row-found');
+                            foundCount++;
+                            
+                            // Set status in dedicated status column
+                            statusCell.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Gefunden</span>';
+                            statusCell.title = `Datei gefunden: ${attachmentFound.filename}`;
+                        } else {
+                            row.classList.add('row-missing');
+                            missingCount++;
+                            
+                            // Set status in dedicated status column
+                            statusCell.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle"></i> Anhang fehlt</span>';
+                            statusCell.title = 'Datei nicht gefunden';
+                        }
+                    }
+                } else {
+                    // Clear status for empty rows
+                    const statusCell = row.querySelector('td:nth-child(4)');
+                    statusCell.innerHTML = '<span class="text-muted">-</span>';
+                    statusCell.title = '';
+                }
+            });
+        }
+        
+        function checkAttachmentExists(attachmentName, uploadedFiles) {
+            // Remove file extension from attachment name for comparison
+            const baseAttachmentName = attachmentName.replace(/\.[^/.]+$/, '').toLowerCase();
+            
+            // Check multiple matching strategies
+            for (const uploadedFile of uploadedFiles) {
+                const uploadedBaseName = uploadedFile.replace(/\.[^/.]+$/, '').toLowerCase();
+                
+                // Strategy 1: Exact match (with and without extension)
+                if (attachmentName.toLowerCase() === uploadedFile.toLowerCase() ||
+                    baseAttachmentName === uploadedBaseName) {
+                    return { found: true, filename: uploadedFile };
+                }
+                
+                // Strategy 2: Partial match (attachment name contains uploaded file name or vice versa)
+                if (baseAttachmentName.includes(uploadedBaseName) || 
+                    uploadedBaseName.includes(baseAttachmentName)) {
+                    return { found: true, filename: uploadedFile };
+                }
+                
+                // Strategy 3: Remove common separators and try again
+                const normalizedAttachment = baseAttachmentName.replace(/[-_\s]/g, '');
+                const normalizedUploaded = uploadedBaseName.replace(/[-_\s]/g, '');
+                
+                if (normalizedAttachment === normalizedUploaded ||
+                    normalizedAttachment.includes(normalizedUploaded) ||
+                    normalizedUploaded.includes(normalizedAttachment)) {
+                    return { found: true, filename: uploadedFile };
+                }
+            }
+            
+            return { found: false, filename: null };
+        }
+
         async function generatePreview() {
             if (!csvData) return;
 
             try {
+                // Validate email addresses in csvData before sending to backend
+                const validEmails = [];
+                const invalidEmails = [];
+                
+                csvData.forEach(row => {
+                    const emailValidation = validateEmailFormat(row.emails);
+                    if (emailValidation.valid) {
+                        validEmails.push(row);
+                    } else {
+                        invalidEmails.push({
+                            email: row.emails,
+                            error: emailValidation.error,
+                            attachment: row.attachments
+                        });
+                    }
+                });
+
                 const response = await fetch(basePath + 'preview-emails', {
                     method: 'POST',
                     headers: getHeaders(),
-                    body: JSON.stringify({ csv_data: csvData })
+                    body: JSON.stringify({ csv_data: validEmails })
                 });
                 const result = await response.json();
                 
+                // Get email configuration for sender display
+                const emailSubject = document.getElementById('email-subject').value.trim();
+                const emailBody = document.getElementById('email-body-editor').value;
+                const senderEmail = document.getElementById('email-login').value;
+                
+                // Process images in email body for preview
+                let processedEmailBody = emailBody;
+                const storedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]');
+                storedImages.forEach(image => {
+                    const filenameBase = image.name.split('.')[0];
+                    const cidPattern = `cid:img-${filenameBase}`;
+                    const regex = new RegExp(`src="${cidPattern}"`, 'g');
+                    const regexSingle = new RegExp(`src='${cidPattern}'`, 'g');
+                    processedEmailBody = processedEmailBody.replace(regex, `src="${image.dataUrl}"`);
+                    processedEmailBody = processedEmailBody.replace(regexSingle, `src='${image.dataUrl}'`);
+                });
+                
                 let previewHtml = `
+                    <!-- Email Configuration Preview -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-envelope"></i> Email-Vorschau</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Betreff:</strong><br>
+                                    <span class="text-dark">${emailSubject || 'Kein Betreff'}</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Absender:</strong><br>
+                                    <span class="text-primary">${senderEmail || 'Nicht konfiguriert'}</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <strong>Email-Inhalt:</strong>
+                                <div class="border rounded p-3 mt-2" style="background: #f8f9fa;">
+                                    <div style="background: white; border-radius: 4px; padding: 15px;">
+                                        ${processedEmailBody}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recipient Preview -->
                     <div class="row">
                         <div class="col-md-6">
                             <h5><i class="fas fa-check-circle text-success"></i> Gültige E-Mails (${result.total_valid})</h5>
@@ -1003,10 +1806,11 @@
                 
                 previewHtml += `</div></div>`;
                 
+                // Show invalid attachments
                 if (result.total_invalid > 0) {
                     previewHtml += `
                         <div class="col-md-6">
-                            <h5><i class="fas fa-exclamation-triangle text-warning"></i> Problematische E-Mails (${result.total_invalid})</h5>
+                            <h5><i class="fas fa-exclamation-triangle text-warning"></i> Fehlende Anhänge (${result.total_invalid})</h5>
                             <div class="email-preview border rounded p-3">
                     `;
                     
@@ -1023,6 +1827,19 @@
                 }
                 
                 previewHtml += `</div>`;
+                
+                // Show invalid email addresses if any
+                if (invalidEmails.length > 0) {
+                    previewHtml += `
+                        <div class="alert alert-danger mt-3">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Ungültige E-Mail-Adressen gefunden:</h6>
+                            <ul class="mb-0">
+                    `;
+                    invalidEmails.forEach(invalid => {
+                        previewHtml += `<li><strong>${invalid.email}</strong>: ${invalid.error}</li>`;
+                    });
+                    previewHtml += `</ul></div>`;
+                }
                 
                 if (result.total_valid === 0) {
                     previewHtml += `
@@ -1047,7 +1864,17 @@
             }
         }
 
+        // Variable to track if sending is in progress and should be cancelled
+        let isSending = false;
+        let shouldCancel = false;
+
         async function sendEmails() {
+            // Prevent multiple clicks
+            if (isSending) {
+                showToast('E-Mail-Versand läuft bereits!', 'info');
+                return;
+            }
+
             if (!csvData || !emailConfig) {
                 showToast('Konfiguration oder CSV-Daten fehlen!', 'error');
                 return;
@@ -1058,6 +1885,57 @@
             if (!emailSubject) {
                 showToast('Email-Betreff ist erforderlich!', 'error');
                 return;
+            }
+
+            // Set sending state
+            isSending = true;
+            shouldCancel = false;
+
+            // Update buttons
+            const sendBtn = document.getElementById('send-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sende...';
+            cancelBtn.style.display = 'inline-block';
+
+            // Filter out emails without valid attachments upfront
+            const validEmails = [];
+            const skippedEmails = [];
+
+            try {
+                // Get list of available attachments
+                const response = await fetch(basePath + 'list-attachments', {
+                    method: 'GET',
+                    headers: getHeaders()
+                });
+                const attachmentResult = await response.json();
+                const availableAttachments = attachmentResult.success ? attachmentResult.files : [];
+
+                // Pre-filter emails: check attachments AND email validity
+                csvData.forEach((email, index) => {
+                    // First check email validity
+                    const emailValidation = validateEmailFormat(email.emails);
+                    if (!emailValidation.valid) {
+                        skippedEmails.push({ ...email, originalIndex: index, reason: `Ungültige E-Mail: ${emailValidation.error}` });
+                        return;
+                    }
+                    
+                    // Then check attachment existence
+                    const attachmentFound = checkAttachmentExists(email.attachments, availableAttachments);
+                    if (attachmentFound.found) {
+                        validEmails.push({ ...email, originalIndex: index });
+                    } else {
+                        skippedEmails.push({ ...email, originalIndex: index, reason: 'Anhang nicht gefunden' });
+                    }
+                });
+
+                showToast(`${validEmails.length} E-Mails werden versendet, ${skippedEmails.length} übersprungen`, 'info');
+            } catch (error) {
+                console.log('Could not pre-filter emails:', error.message);
+                // Fall back to sending all emails
+                csvData.forEach((email, index) => {
+                    validEmails.push({ ...email, originalIndex: index });
+                });
             }
 
             // Add email subject to config
@@ -1071,58 +1949,224 @@
             const progressBar = document.querySelector('.progress-bar');
             progressBar.style.width = '0%';
             
+            // Initialize detailed progress display
+            let resultsHtml = `
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-paper-plane"></i> E-Mail-Versand läuft...</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>Gesamtfortschritt:</span>
+                                <span id="overall-progress">0 / ${csvData.length}</span>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" id="overall-progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="email-sending-log" style="max-height: 300px; overflow-y: auto;" id="email-log">
+            `;
+            
+            // Add placeholder for each email (including skipped ones)
+            csvData.forEach((email, index) => {
+                const isSkipped = skippedEmails.find(s => s.originalIndex === index);
+                const statusClass = isSkipped ? 'bg-warning' : 'bg-secondary';
+                const statusText = isSkipped ? '<i class="fas fa-exclamation-triangle"></i> Übersprungen' : '<i class="fas fa-clock"></i> Wartend';
+                
+                resultsHtml += `
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom" id="email-${index}">
+                        <span>${index + 1}. ${email.emails}</span>
+                        <span class="badge ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </div>
+                `;
+            });
+            
+            resultsHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('send-results').innerHTML = resultsHtml;
+            
             try {
-                const response = await fetch(basePath + 'send-emails', {
-                    method: 'POST',
-                    headers: getHeaders(),
-                    body: JSON.stringify({
-                        config: configWithSubject,
-                        csv_data: csvData
-                    })
-                });
+                // Send emails one by one to show individual progress
+                let sentCount = 0;
+                let failedCount = 0;
+                let skippedCount = skippedEmails.length;
+                const failedEmails = [];
                 
-                progressBar.style.width = '100%';
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    let resultsHtml = `
-                        <div class="alert alert-success">
-                            <h5><i class="fas fa-check-circle"></i> E-Mail-Versand abgeschlossen!</h5>
-                            <p>Erfolgreich gesendet: <strong>${result.sent_count}</strong> E-Mail(s)</p>
-                    `;
-                    
-                    if (result.failed_count > 0) {
-                        resultsHtml += `<p>Fehlgeschlagen: <strong>${result.failed_count}</strong> E-Mail(s)</p>`;
+                for (let i = 0; i < validEmails.length; i++) {
+                    // Check if cancellation was requested
+                    if (shouldCancel) {
+                        showToast('E-Mail-Versand wurde abgebrochen!', 'info');
+                        break;
                     }
+
+                    const email = validEmails[i];
+                    const emailElement = document.getElementById(`email-${email.originalIndex}`);
+                    const badge = emailElement.querySelector('.badge');
                     
-                    resultsHtml += `</div>`;
+                    // Update status to sending
+                    badge.className = 'badge bg-primary';
+                    badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sende...';
                     
-                    if (result.failed_emails.length > 0) {
-                        resultsHtml += `
-                            <div class="alert alert-warning">
-                                <h6>Fehlgeschlagene E-Mails:</h6>
-                                <ul class="mb-0">
-                        `;
-                        result.failed_emails.forEach(failed => {
-                            resultsHtml += `<li>${failed.email}: ${failed.error}</li>`;
+                    try {
+                        // Send individual email
+                        const response = await fetch(basePath + 'send-emails', {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({
+                                config: configWithSubject,
+                                csv_data: [{ emails: email.emails, attachments: email.attachments }] // Send only one email at a time
+                            })
                         });
-                        resultsHtml += `</ul></div>`;
+                        
+                        const result = await response.json();
+                        
+                        if (result.success && result.sent_count > 0) {
+                            // Success
+                            badge.className = 'badge bg-success';
+                            badge.innerHTML = '<i class="fas fa-check"></i> Gesendet';
+                            sentCount++;
+                        } else {
+                            // Failed
+                            badge.className = 'badge bg-danger';
+                            badge.innerHTML = '<i class="fas fa-times"></i> Fehlgeschlagen';
+                            failedCount++;
+                            failedEmails.push({
+                                email: email.emails,
+                                error: result.detail || 'Unbekannter Fehler'
+                            });
+                        }
+                    } catch (error) {
+                        // Network or other error
+                        badge.className = 'badge bg-danger';
+                        badge.innerHTML = '<i class="fas fa-times"></i> Fehler';
+                        failedCount++;
+                        failedEmails.push({
+                            email: email.emails,
+                            error: error.message
+                        });
                     }
                     
-                    document.getElementById('send-results').innerHTML = resultsHtml;
-                    showToast(`${result.sent_count} E-Mails erfolgreich versendet!`, 'success');
-                } else {
-                    throw new Error(result.detail);
+                    // Update overall progress
+                    const completedCount = sentCount + failedCount + skippedCount;
+                    const progressPercent = (completedCount / csvData.length) * 100;
+                    
+                    document.getElementById('overall-progress').textContent = `${completedCount} / ${csvData.length}`;
+                    document.getElementById('overall-progress-bar').style.width = `${progressPercent}%`;
+                    progressBar.style.width = `${progressPercent}%`;
+                    
+                    // Scroll to current email
+                    emailElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    
+                    // Small delay to make progress visible (reduced for faster processing)
+                    await new Promise(resolve => setTimeout(resolve, 200));
                 }
+                
+                // Final summary
+                let finalHtml = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-check-circle text-success"></i> E-Mail-Versand abgeschlossen!</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <div class="display-6 text-success">${sentCount}</div>
+                                        <div class="text-muted">Erfolgreich gesendet</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <div class="display-6 text-danger">${failedCount}</div>
+                                        <div class="text-muted">Fehlgeschlagen</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <div class="display-6 text-warning">${skippedCount}</div>
+                                        <div class="text-muted">Übersprungen</div>
+                                    </div>
+                                </div>
+                            </div>
+                `;
+                
+                if (skippedCount > 0) {
+                    finalHtml += `
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Übersprungene E-Mails:</h6>
+                            <ul class="mb-0">
+                    `;
+                    skippedEmails.forEach(skipped => {
+                        finalHtml += `<li><strong>${skipped.emails}:</strong> ${skipped.reason}</li>`;
+                    });
+                    finalHtml += `</ul></div>`;
+                }
+                
+                if (failedCount > 0) {
+                    finalHtml += `
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Fehlgeschlagene E-Mails:</h6>
+                            <ul class="mb-0">
+                    `;
+                    failedEmails.forEach(failed => {
+                        finalHtml += `<li><strong>${failed.email}:</strong> ${failed.error}</li>`;
+                    });
+                    finalHtml += `</ul></div>`;
+                }
+                
+                finalHtml += `
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('send-results').innerHTML = finalHtml;
+                
+                if (sentCount > 0) {
+                    showToast(`${sentCount} E-Mails erfolgreich versendet!`, 'success');
+                }
+                if (failedCount > 0) {
+                    showToast(`${failedCount} E-Mails fehlgeschlagen!`, 'error');
+                }
+                if (skippedCount > 0) {
+                    showToast(`${skippedCount} E-Mails übersprungen (kein Anhang gefunden)!`, 'info');
+                }
+                
             } catch (error) {
                 document.getElementById('send-results').innerHTML = 
                     `<div class="alert alert-danger">Fehler beim E-Mail-Versand: ${error.message}</div>`;
                 showToast('Fehler beim E-Mail-Versand!', 'error');
             } finally {
+                // Reset sending state
+                isSending = false;
+                shouldCancel = false;
+                
+                // Reset buttons
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Emails jetzt versenden';
+                cancelBtn.style.display = 'none';
+                
                 setTimeout(() => {
                     document.getElementById('send-progress').style.display = 'none';
                 }, 2000);
+            }
+        }
+
+        function cancelSending() {
+            if (confirm('Möchten Sie den E-Mail-Versand wirklich abbrechen?')) {
+                shouldCancel = true;
+                showToast('E-Mail-Versand wird abgebrochen...', 'info');
+                
+                // Update cancel button
+                const cancelBtn = document.getElementById('cancel-btn');
+                cancelBtn.disabled = true;
+                cancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Abbrechen...';
             }
         }
 

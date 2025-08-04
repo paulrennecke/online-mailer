@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Simple Mailer Installation Script für Uberspace
+# Attachments Mailer Installation Script für Uberspace
 
 set -e
 
 echo "==================================="
-echo "Simple Mailer Uberspace Installation"
+echo "Attachments Mailer Uberspace Installation"
 echo "==================================="
 
 # Konfiguration
@@ -69,12 +69,12 @@ if pgrep -f "uvicorn.*web_app:app" > /dev/null; then
 fi
 
 # Clean up old PID and service files
-rm -f ~/logs/simple-mailer.pid
-rm -f "$HOME/.config/services.d/simple-mailer.ini"
+rm -f ~/logs/attachments-mailer.pid
+rm -f "$HOME/.config/services.d/attachments-mailer.ini"
 rm -f "$HOME/.config/services.d/$SERVICE_NAME.ini"
 
 # Stop any supervisor services
-supervisorctl stop simple-mailer 2>/dev/null || true
+supervisorctl stop attachments-mailer 2>/dev/null || true
 supervisorctl stop "$SERVICE_NAME" 2>/dev/null || true
 
 # Stelle sicher, dass das Services-Verzeichnis existiert
@@ -88,9 +88,9 @@ echo "Verwende Port: $FREE_PORT"
 
 # Create management scripts in ~/bin for background process approach
 echo "Erstelle Service-Management-Skripte..."
-cat > "$HOME/bin/start-simple-mailer.sh" << EOF
+cat > "$HOME/bin/start-attachments-mailer.sh" << EOF
 #!/bin/bash
-# Start-Skript für Simple Mailer
+# Start-Skript für Attachments Mailer
 
 # Erkenne verfügbare UTF-8 Locale
 if locale -a | grep -q "en_US.utf8"; then
@@ -127,8 +127,8 @@ fi
 
 INSTALL_PATH="$INSTALL_PATH"
 PORT="$FREE_PORT"
-LOG_FILE="$HOME/logs/simple-mailer.log"
-PID_FILE="$HOME/logs/simple-mailer.pid"
+LOG_FILE="$HOME/logs/attachments-mailer.log"
+PID_FILE="$HOME/logs/attachments-mailer.pid"
 
 cd "\$INSTALL_PATH"
 
@@ -150,25 +150,25 @@ source venv/bin/activate
 echo "Verwende Locale: \$LC_ALL"
 
 # Starte uvicorn im Hintergrund mit korrekten Locale-Einstellungen
-echo "Starte Simple Mailer auf Port \$PORT..."
+echo "Starte Attachments Mailer auf Port \$PORT..."
 nohup uvicorn web_app:app --host 0.0.0.0 --port \$PORT > "\$LOG_FILE" 2>&1 &
 echo \$! > "\$PID_FILE"
 
-echo "Simple Mailer gestartet (PID: \$!)"
+echo "Attachments Mailer gestartet (PID: \$!)"
 echo "Logs: \$LOG_FILE"
 echo "URL: https://$DOMAIN/$SUBDIRECTORY/"
 EOF
 
-cat > "$HOME/bin/stop-simple-mailer.sh" << EOF
+cat > "$HOME/bin/stop-attachments-mailer.sh" << EOF
 #!/bin/bash
-# Stopp-Skript für Simple Mailer
+# Stopp-Skript für Attachments Mailer
 
-PID_FILE="$HOME/logs/simple-mailer.pid"
+PID_FILE="$HOME/logs/attachments-mailer.pid"
 
 if [[ -f "\$PID_FILE" ]]; then
     PID=\$(cat "\$PID_FILE")
     if kill -0 "\$PID" 2>/dev/null; then
-        echo "Stoppe Simple Mailer (PID: \$PID)"
+        echo "Stoppe Attachments Mailer (PID: \$PID)"
         kill "\$PID"
         sleep 2
         if kill -0 "\$PID" 2>/dev/null; then
@@ -176,7 +176,7 @@ if [[ -f "\$PID_FILE" ]]; then
             kill -9 "\$PID"
         fi
         rm -f "\$PID_FILE"
-        echo "Simple Mailer gestoppt"
+        echo "Attachments Mailer gestoppt"
     else
         echo "Process nicht gefunden (PID: \$PID)"
         rm -f "\$PID_FILE"
@@ -186,45 +186,45 @@ else
 fi
 EOF
 
-cat > "$HOME/bin/status-simple-mailer.sh" << EOF
+cat > "$HOME/bin/status-attachments-mailer.sh" << EOF
 #!/bin/bash
-# Status-Skript für Simple Mailer
+# Status-Skript für Attachments Mailer
 
-PID_FILE="$HOME/logs/simple-mailer.pid"
+PID_FILE="$HOME/logs/attachments-mailer.pid"
 
 if [[ -f "\$PID_FILE" ]]; then
     PID=\$(cat "\$PID_FILE")
     if kill -0 "\$PID" 2>/dev/null; then
-        echo "✓ Simple Mailer läuft (PID: \$PID)"
+        echo "✓ Attachments Mailer läuft (PID: \$PID)"
         echo "Port: $FREE_PORT"
         echo "URL: https://$DOMAIN/$SUBDIRECTORY/"
-        echo "Logs: $HOME/logs/simple-mailer.log"
+        echo "Logs: $HOME/logs/attachments-mailer.log"
         echo ""
         echo "Letzte Log-Einträge:"
-        tail -n 10 "$HOME/logs/simple-mailer.log" 2>/dev/null || echo "Keine Logs verfügbar"
+        tail -n 10 "$HOME/logs/attachments-mailer.log" 2>/dev/null || echo "Keine Logs verfügbar"
     else
-        echo "✗ Simple Mailer läuft nicht (PID \$PID nicht gefunden)"
+        echo "✗ Attachments Mailer läuft nicht (PID \$PID nicht gefunden)"
         rm -f "\$PID_FILE"
     fi
 else
-    echo "✗ Simple Mailer läuft nicht (keine PID-Datei)"
+    echo "✗ Attachments Mailer läuft nicht (keine PID-Datei)"
 fi
 EOF
 
-chmod +x "$HOME/bin/start-simple-mailer.sh"
-chmod +x "$HOME/bin/stop-simple-mailer.sh"
-chmod +x "$HOME/bin/status-simple-mailer.sh"
+chmod +x "$HOME/bin/start-attachments-mailer.sh"
+chmod +x "$HOME/bin/stop-attachments-mailer.sh"
+chmod +x "$HOME/bin/status-attachments-mailer.sh"
 
 echo "✓ Service-Management-Skripte erstellt"
 
 echo "6. Service starten (Background Process Approach)..."
 
 # Start the service using background process instead of supervisor
-"$HOME/bin/start-simple-mailer.sh"
+"$HOME/bin/start-attachments-mailer.sh"
 sleep 5
 
 # Get the actual PID and verify it's running
-PID_FILE="$HOME/logs/simple-mailer.pid"
+PID_FILE="$HOME/logs/attachments-mailer.pid"
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
@@ -233,7 +233,7 @@ if [[ -f "$PID_FILE" ]]; then
     else
         echo "✗ Service konnte nicht gestartet werden"
         echo "Logs:"
-        tail -n 20 "$HOME/logs/simple-mailer.log" 2>/dev/null || echo "Log-Datei nicht verfügbar"
+        tail -n 20 "$HOME/logs/attachments-mailer.log" 2>/dev/null || echo "Log-Datei nicht verfügbar"
         exit 1
     fi
 else
@@ -256,7 +256,7 @@ fi
 
 # Apache .htaccess für zusätzliche Konfiguration (optional)
 cat > ".htaccess" << EOF
-# Zusätzliche Apache-Konfiguration für Simple Mailer
+# Zusätzliche Apache-Konfiguration für Attachments Mailer
 RewriteEngine On
 
 # CORS Headers für API
@@ -279,18 +279,18 @@ chmod +x "$INSTALL_PATH/run_local.py"
 echo "9. Erstelle Update-Skript..."
 cat > "$INSTALL_PATH/update.sh" << 'EOF'
 #!/bin/bash
-# Update-Skript für Simple Mailer
+# Update-Skript für Attachments Mailer
 
 set -e
 
 INSTALL_PATH=$(dirname "$0")
 
-echo "Updating Simple Mailer..."
+echo "Updating Attachments Mailer..."
 
 cd "$INSTALL_PATH"
 
 # Stoppe Service
-~/bin/stop-simple-mailer.sh
+~/bin/stop-attachments-mailer.sh
 
 # Repository aktualisieren (falls git verfügbar)
 if [[ -d ".git" ]]; then
@@ -304,7 +304,7 @@ source venv/bin/activate
 pip install --upgrade -r requirements.txt
 
 # Service neustarten
-~/bin/start-simple-mailer.sh
+~/bin/start-attachments-mailer.sh
 
 echo "Update completed!"
 EOF
@@ -322,9 +322,9 @@ if curl -s "http://127.0.0.1:$PORT/" > /dev/null; then
 else
     echo "✗ Backend antwortet nicht auf Port $PORT"
     echo "Service Status:"
-    "$HOME/bin/status-simple-mailer.sh"
+    "$HOME/bin/status-attachments-mailer.sh"
     echo "Logs:"
-    tail -n 20 "$HOME/logs/simple-mailer.log"
+    tail -n 20 "$HOME/logs/attachments-mailer.log"
     exit 1
 fi
 
@@ -356,7 +356,7 @@ echo "11. Finaler Restart für optimale Konfiguration..."
 
 # Stop current service
 echo "Stoppe Service für finalen Restart..."
-"$HOME/bin/stop-simple-mailer.sh"
+"$HOME/bin/stop-attachments-mailer.sh"
 sleep 2
 
 # Update web backend configuration to ensure it's correct
@@ -365,12 +365,12 @@ uberspace web backend set "/$SERVICE_NAME" --http --port "$PORT" --remove-prefix
 
 # Start service again
 echo "Starte Service neu..."
-"$HOME/bin/start-simple-mailer.sh"
+"$HOME/bin/start-attachments-mailer.sh"
 sleep 3
 
 echo ""
 echo "Prüfe finale Service-Konfiguration..."
-"$HOME/bin/status-simple-mailer.sh"
+"$HOME/bin/status-attachments-mailer.sh"
 
 echo ""
 echo "Prüfe Web Backend Status..."
@@ -406,7 +406,7 @@ echo "==================================="
 echo "✓ Installation erfolgreich!"
 echo "==================================="
 echo ""
-echo "Die Simple Mailer Anwendung ist jetzt verfügbar unter:"
+echo "Die Attachments Mailer Anwendung ist jetzt verfügbar unter:"
 echo "https://$DOMAIN/$SUBDIRECTORY/"
 echo ""
 echo "Service Information:"
@@ -415,20 +415,20 @@ echo "- Web Backend: /$SERVICE_NAME -> Port $PORT (mit --remove-prefix)"
 echo "- Status: Läuft als Background-Prozess"
 echo ""
 echo "Nützliche Befehle:"
-echo "- Service status: ~/bin/status-simple-mailer.sh"
-echo "- Service starten: ~/bin/start-simple-mailer.sh"
-echo "- Service stoppen: ~/bin/stop-simple-mailer.sh"
-echo "- Logs anzeigen: tail -f ~/logs/simple-mailer.log"
+echo "- Service status: ~/bin/status-attachments-mailer.sh"
+echo "- Service starten: ~/bin/start-attachments-mailer.sh"
+echo "- Service stoppen: ~/bin/stop-attachments-mailer.sh"
+echo "- Logs anzeigen: tail -f ~/logs/attachments-mailer.log"
 echo "- Update: cd $INSTALL_PATH && ./update.sh"
 echo "- Web Backend prüfen: uberspace web backend list"
 echo ""
 echo "Verzeichnisse:"
 echo "- Installation: $INSTALL_PATH"
-echo "- Logs: ~/logs/simple-mailer.log"
-echo "- Scripts: ~/bin/*simple-mailer*"
+echo "- Logs: ~/logs/attachments-mailer.log"
+echo "- Scripts: ~/bin/*attachments-mailer*"
 echo ""
 echo "WICHTIG:"
-echo "1. Bei Problemen prüfen Sie die Logs: tail -f ~/logs/simple-mailer.log"
+echo "1. Bei Problemen prüfen Sie die Logs: tail -f ~/logs/attachments-mailer.log"
 echo "2. Web Backend Status: uberspace web backend list"
 echo "3. Falls extern nicht erreichbar: uberspace web backend set /$SERVICE_NAME --http --port $PORT --remove-prefix"
 echo "4. Die Anwendung speichert Email-Konfigurationen im Browser (localStorage)"
@@ -439,4 +439,4 @@ echo "8. Nach dem finalen Restart sollten alle Upload-Funktionen korrekt arbeite
 echo ""
 
 # Zeige aktuellen Status
-"$HOME/bin/status-simple-mailer.sh"
+"$HOME/bin/status-attachments-mailer.sh"

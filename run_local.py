@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lokales Entwicklungs-Skript für Simple Mailer
+Lokales Entwicklungs-Skript für Attachments Mailer
 Startet die FastAPI-Anwendung lokal
 """
 
@@ -8,7 +8,7 @@ import uvicorn
 from web_app import app
 
 if __name__ == "__main__":
-    print("Starting Simple Mailer Web Application...")
+    print("Starting Attachments Mailer Web Application...")
     print("Application will be available at: http://localhost:8000")
     print("Press Ctrl+C to stop the server")
     
