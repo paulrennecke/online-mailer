@@ -92,6 +92,39 @@ cat > "$HOME/bin/start-simple-mailer.sh" << EOF
 #!/bin/bash
 # Start-Skript für Simple Mailer
 
+# Erkenne verfügbare UTF-8 Locale
+if locale -a | grep -q "en_US.utf8"; then
+    export LC_ALL=en_US.utf8
+    export LANG=en_US.utf8
+    export LANGUAGE=en_US.utf8
+elif locale -a | grep -q "en_US.UTF-8"; then
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    export LANGUAGE=en_US.UTF-8
+elif locale -a | grep -q "de_DE.utf8"; then
+    export LC_ALL=de_DE.utf8
+    export LANG=de_DE.utf8
+    export LANGUAGE=de_DE.utf8
+elif locale -a | grep -q "C.utf8"; then
+    export LC_ALL=C.utf8
+    export LANG=C.utf8
+    export LANGUAGE=C.utf8
+else
+    # Fallback: erste verfügbare UTF-8 Locale verwenden
+    UTF8_LOCALE=\$(locale -a | grep -i utf8 | head -n 1)
+    if [[ -n "\$UTF8_LOCALE" ]]; then
+        export LC_ALL="\$UTF8_LOCALE"
+        export LANG="\$UTF8_LOCALE"
+        export LANGUAGE="\$UTF8_LOCALE"
+        echo "Verwende Locale: \$UTF8_LOCALE"
+    else
+        echo "WARNUNG: Keine UTF-8 Locale gefunden. Versuche mit POSIX..."
+        export LC_ALL=POSIX
+        export LANG=POSIX
+        export LANGUAGE=POSIX
+    fi
+fi
+
 INSTALL_PATH="$INSTALL_PATH"
 PORT="$FREE_PORT"
 LOG_FILE="$HOME/logs/simple-mailer.log"
@@ -113,7 +146,10 @@ fi
 # Aktiviere Virtual Environment
 source venv/bin/activate
 
-# Starte uvicorn im Hintergrund
+# Zeige verwendete Locale für Debugging
+echo "Verwende Locale: \$LC_ALL"
+
+# Starte uvicorn im Hintergrund mit korrekten Locale-Einstellungen
 echo "Starte Simple Mailer auf Port \$PORT..."
 nohup uvicorn web_app:app --host 0.0.0.0 --port \$PORT > "\$LOG_FILE" 2>&1 &
 echo \$! > "\$PID_FILE"
