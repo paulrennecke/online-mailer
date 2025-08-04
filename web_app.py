@@ -177,10 +177,14 @@ async def upload_data_file(request: Request, file: UploadFile = File(...)):
         # Determine file type and read accordingly
         if file.filename.lower().endswith('.csv'):
             df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
-        elif file.filename.lower().endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(io.BytesIO(contents))
+        elif file.filename.lower().endswith('.xlsx'):
+            # Use openpyxl engine for .xlsx files
+            df = pd.read_excel(io.BytesIO(contents), engine='openpyxl')
+        elif file.filename.lower().endswith('.xls'):
+            # Use xlrd engine for .xls files
+            df = pd.read_excel(io.BytesIO(contents), engine='xlrd')
         else:
-            raise HTTPException(status_code=400, detail="Nur CSV- und XLSX-Dateien werden unterstützt")
+            raise HTTPException(status_code=400, detail="Nur CSV-, XLSX- und XLS-Dateien werden unterstützt")
         
         # Store original dataframe in session
         session["original_dataframe"] = df.to_dict('records')
