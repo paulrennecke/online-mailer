@@ -175,6 +175,39 @@
                         </div>
                     </div>
 
+                    <!-- Placeholders Section -->
+                    <div class="mb-4">
+                        <h5>Platzhalter verwalten</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="placeholder-name" class="form-label">Platzhalter-Name</label>
+                                        <input type="text" class="form-control" id="placeholder-name" placeholder="z.B. Name, Vorname, Firma">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">&nbsp;</label>
+                                        <div>
+                                            <button type="button" class="btn btn-primary" onclick="addPlaceholder()">
+                                                <i class="fas fa-plus"></i> Platzhalter hinzufügen
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <h6>Verfügbare Platzhalter:</h6>
+                                    <div id="placeholders-list" class="d-flex flex-wrap gap-2">
+                                        <span class="text-muted">Keine Platzhalter definiert</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Platzhalter werden in eckigen Klammern verwendet: [Name], [Vorname], etc.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Email Body Editor -->
                     <div class="mb-4">
                         <h5>Inhalt</h5>
@@ -232,6 +265,15 @@
                                         <ul class="dropdown-menu" id="image-dropdown">
                                             <li class="dropdown-header">Hochgeladene Bilder:</li>
                                             <li id="no-images-item"><span class="dropdown-item-text text-muted">Keine Bilder hochgeladen</span></li>
+                                        </ul>
+                                    </div>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-tags"></i> Platzhalter einfügen
+                                        </button>
+                                        <ul class="dropdown-menu" id="placeholder-dropdown">
+                                            <li class="dropdown-header">Verfügbare Platzhalter:</li>
+                                            <li id="no-placeholders-item"><span class="dropdown-item-text text-muted">Keine Platzhalter definiert</span></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -318,6 +360,15 @@
                                             </select>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Placeholder Columns Section -->
+                                    <div id="placeholder-columns-section" class="mt-3" style="display: none;">
+                                        <h6>Platzhalter-Spalten zuordnen:</h6>
+                                        <div id="placeholder-column-mappings">
+                                            <!-- Dynamic content will be added here -->
+                                        </div>
+                                    </div>
+                                    
                                     <div class="mt-3">
                                         <button type="button" class="btn btn-primary" onclick="processColumnSelection()">
                                             <i class="fas fa-check"></i> Spalten übernehmen
@@ -347,7 +398,6 @@
                                             <th class="text-center">#</th>
                                             <th>Email-Adresse</th>
                                             <th>Anhang</th>
-                                            <th class="text-center">Status</th>
                                             <th class="text-center">
                                                 <button type="button" class="btn btn-sm btn-outline-danger" 
                                                         onclick="clearAllTableRows()" title="Alle Zeilen löschen">
@@ -382,11 +432,7 @@
                 <!-- Send Section -->
                 <div id="send-section" class="config-section" style="display: none;">
                     <h3><i class="fas fa-paper-plane"></i> Email-Versand</h3>
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Achtung:</strong> Stellen Sie sicher, dass alle Konfigurationen korrekt sind, bevor Sie die Emails versenden.
-                    </div>
-                    <div id="send-controls">
+                    <div id="send-controls" class="text-center">
                         <button type="button" class="btn btn-success btn-lg me-2" id="send-btn" onclick="sendEmails()">
                             <i class="fas fa-paper-plane"></i> Emails jetzt versenden
                         </button>
@@ -411,6 +457,7 @@
                         Weiter <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
+                <br><br>
             </div>
         </div>
     </div>
@@ -431,6 +478,7 @@
         let currentStep = 1;
         let csvData = null;
         let emailConfig = null;
+        let placeholders = []; // Array to store placeholder names
         
         // Session ID for temporary file storage
         const sessionId = '{{ session_id }}';
@@ -560,6 +608,271 @@
             setTimeout(() => {
                 autoCheckAttachments();
             }, 500);
+            
+            // Load placeholders from localStorage
+            loadPlaceholders();
+        }
+
+        // Placeholder Management Functions
+        function loadPlaceholders() {
+            const savedPlaceholders = localStorage.getItem('emailPlaceholders');
+            if (savedPlaceholders) {
+                placeholders = JSON.parse(savedPlaceholders);
+                updatePlaceholdersList();
+            }
+        }
+
+        function savePlaceholders() {
+            localStorage.setItem('emailPlaceholders', JSON.stringify(placeholders));
+        }
+
+        function addPlaceholder() {
+            const placeholderName = document.getElementById('placeholder-name').value.trim();
+            if (!placeholderName) {
+                showToast('Bitte geben Sie einen Platzhalter-Namen ein.', 'error');
+                return;
+            }
+            
+            // Check if placeholder already exists
+            if (placeholders.includes(placeholderName)) {
+                showToast('Dieser Platzhalter existiert bereits.', 'error');
+                return;
+            }
+            
+            placeholders.push(placeholderName);
+            savePlaceholders();
+            updatePlaceholdersList();
+            
+            // Clear input
+            document.getElementById('placeholder-name').value = '';
+            
+            showToast(`Platzhalter [${placeholderName}] hinzugefügt!`, 'success');
+        }
+
+        function removePlaceholder(placeholderName) {
+            if (confirm(`Möchten Sie den Platzhalter [${placeholderName}] wirklich löschen?`)) {
+                placeholders = placeholders.filter(p => p !== placeholderName);
+                savePlaceholders();
+                updatePlaceholdersList();
+                showToast(`Platzhalter [${placeholderName}] entfernt!`, 'info');
+            }
+        }
+
+        function updatePlaceholdersList() {
+            const listContainer = document.getElementById('placeholders-list');
+            const dropdown = document.getElementById('placeholder-dropdown');
+            const noPlaceholdersItem = document.getElementById('no-placeholders-item');
+            
+            // Update the placeholders list in the management section
+            if (placeholders.length === 0) {
+                listContainer.innerHTML = '<span class="text-muted">Keine Platzhalter definiert</span>';
+                noPlaceholdersItem.style.display = 'block';
+            } else {
+                let html = '';
+                placeholders.forEach(placeholder => {
+                    html += `
+                        <span class="badge bg-primary me-2 mb-2" style="font-size: 0.8rem;">
+                            [${placeholder}]
+                            <button type="button" class="btn-close btn-close-white ms-1" 
+                                    onclick="removePlaceholder('${placeholder}')" 
+                                    aria-label="Entfernen" style="font-size: 0.6rem;"></button>
+                        </span>
+                    `;
+                });
+                listContainer.innerHTML = html;
+                noPlaceholdersItem.style.display = 'none';
+            }
+            
+            // Update the dropdown menu
+            // Remove existing placeholder items
+            const existingItems = dropdown.querySelectorAll('.placeholder-dropdown-item');
+            existingItems.forEach(item => item.remove());
+            
+            if (placeholders.length > 0) {
+                placeholders.forEach(placeholder => {
+                    const li = document.createElement('li');
+                    li.className = 'placeholder-dropdown-item';
+                    li.innerHTML = `
+                        <a class="dropdown-item" href="#" onclick="insertPlaceholder('${placeholder}')">
+                            <i class="fas fa-tag"></i> [${placeholder}]
+                        </a>
+                    `;
+                    dropdown.appendChild(li);
+                });
+            }
+            
+            // Update table structure to include placeholder columns
+            updateTableStructure();
+            
+            // Update placeholder column mappings if column selection is visible
+            updatePlaceholderColumnMappings();
+        }
+
+        function updateTableStructure() {
+            const tableHeader = document.querySelector('#editable-table thead tr');
+            
+            // Build new header structure (without status column)
+            let headerHtml = `
+                <th class="text-center">#</th>
+                <th>Email-Adresse</th>
+                <th>Anhang</th>
+            `;
+            
+            // Add placeholder columns
+            placeholders.forEach(placeholder => {
+                headerHtml += `<th>${placeholder}</th>`;
+            });
+            
+            headerHtml += `
+                <th class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="clearAllTableRows()" title="Alle Zeilen löschen">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </th>
+            `;
+            
+            tableHeader.innerHTML = headerHtml;
+            
+            // Update existing rows to include placeholder columns
+            updateExistingTableRows();
+        }
+
+        function updateExistingTableRows() {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            rows.forEach((row, index) => {
+                const emailInput = row.querySelector('td:nth-child(2) input');
+                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                
+                if (emailInput && attachmentInput) {
+                    const email = emailInput.value;
+                    const attachment = attachmentInput.value;
+                    
+                    // Get placeholder values from existing row if they exist
+                    const placeholderValues = {};
+                    placeholders.forEach((placeholder, pIndex) => {
+                        const existingInput = row.querySelector(`td:nth-child(${4 + pIndex}) input`);
+                        placeholderValues[placeholder] = existingInput ? existingInput.value : '';
+                    });
+                    
+                    // Rebuild the row with new structure
+                    row.innerHTML = buildTableRowHtml(index + 1, email, attachment, placeholderValues);
+                }
+            });
+        }
+
+        function updatePlaceholderColumnMappings() {
+            const mappingsContainer = document.getElementById('placeholder-column-mappings');
+            const placeholderSection = document.getElementById('placeholder-columns-section');
+            
+            if (!mappingsContainer) return;
+            
+            if (placeholders.length === 0) {
+                placeholderSection.style.display = 'none';
+                return;
+            }
+            
+            placeholderSection.style.display = 'block';
+            
+            // Get available columns for selection
+            const emailColumnSelect = document.getElementById('email-column-select');
+            const availableColumns = Array.from(emailColumnSelect.options)
+                .map(option => option.value)
+                .filter(value => value !== '');
+            
+            let html = '';
+            placeholders.forEach(placeholder => {
+                html += `
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">[${placeholder}]</label>
+                        </div>
+                        <div class="col-md-6">
+                            <select class="form-select placeholder-column-select" data-placeholder="${placeholder}">
+                                <option value="">Keine Zuordnung</option>
+                `;
+                
+                availableColumns.forEach(column => {
+                    html += `<option value="${column}">${column}</option>`;
+                });
+                
+                html += `
+                            </select>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            mappingsContainer.innerHTML = html;
+        }
+
+        function buildTableRowHtml(rowNumber, email, attachment, placeholderValues = {}) {
+            let html = `
+                <td class="text-center">
+                    <span class="row-number text-muted">${rowNumber}</span>
+                </td>
+                <td class="position-relative">
+                    <input type="email" class="form-control editable-cell" 
+                           value="${email}" 
+                           placeholder="email@example.com"
+                           onchange="validateAndClearRowStatus(this)" 
+                           onblur="validateAndClearRowStatus(this)">
+                    <span class="email-status-icon position-absolute top-50 end-0 translate-middle-y me-2" style="pointer-events: none;"></span>
+                </td>
+                <td class="position-relative">
+                    <input type="text" class="form-control editable-cell" 
+                           value="${attachment}" 
+                           placeholder="dateiname (ohne .pdf)"
+                           onchange="clearRowStatus(this)">
+                    <span class="attachment-status-icon position-absolute top-50 end-0 translate-middle-y me-2" style="pointer-events: none;"></span>
+                </td>
+            `;
+            
+            // Add placeholder columns
+            placeholders.forEach(placeholder => {
+                const value = placeholderValues[placeholder] || '';
+                html += `
+                    <td>
+                        <input type="text" class="form-control editable-cell" 
+                               value="${value}" 
+                               placeholder="${placeholder}"
+                               onchange="clearRowStatus(this)">
+                    </td>
+                `;
+            });
+            
+            html += `
+                <td class="text-center table-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="removeTableRow(this)" title="Zeile löschen">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            return html;
+        }
+
+        function insertPlaceholder(placeholderName) {
+            const editor = document.getElementById('email-body-editor');
+            const placeholder = `[${placeholderName}]`;
+            
+            // Insert at cursor position or at the end
+            const cursorPos = editor.selectionStart;
+            const textBefore = editor.value.substring(0, cursorPos);
+            const textAfter = editor.value.substring(cursorPos);
+            
+            editor.value = textBefore + placeholder + textAfter;
+            
+            // Move cursor after inserted placeholder
+            editor.selectionStart = editor.selectionEnd = cursorPos + placeholder.length;
+            editor.focus();
+            
+            updateHtmlPreview();
+            saveEmailBodyToStorage();
+            showToast(`Platzhalter [${placeholderName}] eingefügt!`, 'success');
         }
 
         function updateStepIndicator() {
@@ -797,6 +1110,9 @@
             });
             
             document.getElementById('column-selection').style.display = 'block';
+            
+            // Initialize placeholder column mappings
+            updatePlaceholderColumnMappings();
         }
 
         function showDataPreview() {
@@ -831,6 +1147,17 @@
                 return;
             }
             
+            // Collect placeholder column mappings
+            const placeholderColumns = {};
+            const placeholderSelects = document.querySelectorAll('.placeholder-column-select');
+            placeholderSelects.forEach(select => {
+                const placeholder = select.dataset.placeholder;
+                const column = select.value;
+                if (column) {
+                    placeholderColumns[placeholder] = column;
+                }
+            });
+            
             try {
                 showToast('Verarbeite Spaltenauswahl...', 'info');
                 
@@ -839,7 +1166,8 @@
                     headers: getHeaders(),
                     body: JSON.stringify({
                         email_column: emailColumn,
-                        attachment_column: attachmentColumn
+                        attachment_column: attachmentColumn,
+                        placeholder_columns: placeholderColumns
                     })
                 });
                 const result = await response.json();
@@ -854,28 +1182,41 @@
                     let invalidEmails = [];
                     
                     result.data.forEach((row, index) => {
-                        const emailValidation = validateEmailFormat(row.emails);
-                        if (emailValidation.valid) {
-                            addTableRowWithData(row.emails, row.attachments, index);
-                            validCount++;
-                        } else {
-                            invalidEmails.push({
-                                email: row.emails,
-                                error: emailValidation.error,
-                                attachment: row.attachments,
-                                index: index
-                            });
+                        // Extract placeholder values from row data
+                        const placeholderValues = {};
+                        placeholders.forEach(placeholder => {
+                            if (row[placeholder]) {
+                                placeholderValues[placeholder] = row[placeholder];
+                            }
+                        });
+                        
+                        // Add ALL rows to table, regardless of validation
+                        addTableRowWithData(row.emails, row.attachments, index, placeholderValues);
+                        
+                        // Count valid emails for status message
+                        if (row.emails) {
+                            const emailValidation = validateEmailFormat(row.emails);
+                            if (emailValidation.valid) {
+                                validCount++;
+                            } else {
+                                invalidEmails.push({
+                                    email: row.emails,
+                                    error: emailValidation.error,
+                                    attachment: row.attachments,
+                                    index: index
+                                });
+                            }
                         }
                     });
 
                     // Add a empty rows for additional manual entries
                     addTableRowWithData('', '', -1);
                     
-                    // Update csvData with only valid emails
-                    csvData = result.data.filter(row => validateEmailFormat(row.emails).valid);
+                    // Update csvData with ALL imported data (validation happens at send time)
+                    csvData = result.data;
                     
                     // Create status message
-                    let statusMessage = `<div class="alert alert-success"><i class="fas fa-check"></i> Spalten verarbeitet: ${validCount} gültige Einträge importiert</div>`;
+                    let statusMessage = `<div class="alert alert-success"><i class="fas fa-check"></i> Spalten verarbeitet: ${result.data.length} Einträge importiert (${validCount} mit gültigen E-Mails)</div>`;
                     
                     if (invalidEmails.length > 0) {
                         statusMessage += `<div class="alert alert-warning">
@@ -897,9 +1238,9 @@
                     }
                     
                     if (invalidEmails.length > 0) {
-                        showToast(`${validCount} gültige Einträge importiert, ${invalidEmails.length} ungültige E-Mail-Adressen ignoriert`, 'warning');
+                        showToast(`${result.data.length} Einträge importiert (${validCount} gültige E-Mails, ${invalidEmails.length} ungültige)`, 'warning');
                     } else {
-                        showToast(`${validCount} Einträge erfolgreich importiert!`, 'success');
+                        showToast(`${result.data.length} Einträge erfolgreich importiert!`, 'success');
                     }
                     
                     // Auto-check attachments after importing data
@@ -929,38 +1270,12 @@
             addTableRowWithData('', '', -1);
         }
 
-        function addTableRowWithData(email, attachment, index) {
+        function addTableRowWithData(email, attachment, index, placeholderValues = {}) {
             const tableBody = document.getElementById('editable-table-body');
             const row = tableBody.insertRow();
             const rowNumber = tableBody.rows.length;
             
-            row.innerHTML = `
-                <td class="text-center">
-                    <span class="row-number text-muted">${rowNumber}</span>
-                </td>
-                <td>
-                    <input type="email" class="form-control editable-cell" 
-                           value="${email}" 
-                           placeholder="email@example.com"
-                           onchange="validateAndClearRowStatus(this)" 
-                           onblur="validateAndClearRowStatus(this)">
-                </td>
-                <td>
-                    <input type="text" class="form-control editable-cell" 
-                           value="${attachment}" 
-                           placeholder="dateiname (ohne .pdf)"
-                           onchange="clearRowStatus(this)">
-                </td>
-                <td class="text-center status-column">
-                    <span class="status-indicator text-muted">-</span>
-                </td>
-                <td class="text-center table-actions">
-                    <button type="button" class="btn btn-sm btn-outline-danger" 
-                            onclick="removeTableRow(this)" title="Zeile löschen">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            `;
+            row.innerHTML = buildTableRowHtml(rowNumber, email, attachment, placeholderValues);
         }
 
         function removeTableRow(button) {
@@ -1003,54 +1318,114 @@
         function clearRowStatus(inputElement) {
             // Remove status indicators and row classes when a cell is edited
             const row = inputElement.closest('tr');
-            row.classList.remove('row-found', 'row-missing', 'row-partial');
+            row.classList.remove('table-success', 'table-danger', 'table-warning');
             
-            // Reset status indicator in the status column
-            const statusIndicator = row.querySelector('.status-indicator');
-            if (statusIndicator) {
-                statusIndicator.className = 'status-indicator text-muted';
-                statusIndicator.innerHTML = '-';
-                statusIndicator.title = '';
-            }
+            // Reset status icons
+            const emailIcon = row.querySelector('.email-status-icon');
+            const attachmentIcon = row.querySelector('.attachment-status-icon');
+            if (emailIcon) emailIcon.innerHTML = '';
+            if (attachmentIcon) attachmentIcon.innerHTML = '';
             
             // Auto-check attachments after a short delay
-            autoCheckAttachments();
+            setTimeout(() => {
+                updateRowStatus(row);
+                autoCheckAttachments();
+            }, 100);
         }
 
         function validateAndClearRowStatus(inputElement) {
             const row = inputElement.closest('tr');
             const email = inputElement.value.trim();
+            const emailIcon = row.querySelector('.email-status-icon');
             
             // Clear existing status first
-            clearRowStatus(inputElement);
+            row.classList.remove('table-success', 'table-danger', 'table-warning');
+            if (emailIcon) emailIcon.innerHTML = '';
             
             // Validate email if not empty
             if (email) {
                 const validation = validateEmailFormat(email);
+                
                 if (!validation.valid) {
                     // Show email validation error
                     inputElement.classList.add('is-invalid');
                     inputElement.title = validation.error;
                     
-                    // Update status indicator
-                    const statusIndicator = row.querySelector('.status-indicator');
-                    if (statusIndicator) {
-                        statusIndicator.className = 'status-indicator text-danger';
-                        statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Ungültig';
-                        statusIndicator.title = validation.error;
+                    if (emailIcon) {
+                        emailIcon.innerHTML = '<i class="fas fa-times text-danger"></i>';
                     }
-                    
-                    // Add row styling
-                    row.classList.add('row-missing');
                 } else {
                     // Valid email
                     inputElement.classList.remove('is-invalid');
                     inputElement.title = '';
+                    
+                    if (emailIcon) {
+                        emailIcon.innerHTML = '<i class="fas fa-check text-success"></i>';
+                    }
                 }
             } else {
                 // Empty email
                 inputElement.classList.remove('is-invalid');
                 inputElement.title = '';
+            }
+            
+            // Update overall row status
+            setTimeout(() => updateRowStatus(row), 100);
+        }
+
+        function updateRowStatus(row) {
+            const emailInput = row.querySelector('td:nth-child(2) input');
+            const attachmentInput = row.querySelector('td:nth-child(3) input');
+            const emailIcon = row.querySelector('.email-status-icon');
+            const attachmentIcon = row.querySelector('.attachment-status-icon');
+            
+            if (!emailInput || !attachmentInput) return;
+            
+            const email = emailInput.value.trim();
+            const attachment = attachmentInput.value.trim();
+            
+            let emailValid = false;
+            let attachmentValid = false;
+            
+            // Check email validity
+            if (email) {
+                const validation = validateEmailFormat(email);
+                emailValid = validation.valid;
+                
+                if (emailIcon) {
+                    emailIcon.innerHTML = emailValid ? 
+                        '<i class="fas fa-check text-success"></i>' : 
+                        '<i class="fas fa-times text-danger"></i>';
+                }
+            } else if (emailIcon) {
+                emailIcon.innerHTML = '';
+            }
+            
+            // Check attachment (will be updated by autoCheckAttachments)
+            if (attachment && attachmentIcon) {
+                // This will be set by checkTableRowsAgainstAttachments
+                // For now, just show a neutral state
+                if (!attachmentIcon.innerHTML) {
+                    attachmentIcon.innerHTML = '<i class="fas fa-clock text-muted"></i>';
+                }
+            } else if (attachmentIcon) {
+                attachmentIcon.innerHTML = '';
+            }
+            
+            // Set row color based on overall status
+            row.classList.remove('table-success', 'table-danger', 'table-warning');
+            
+            if (email && attachment) {
+                const hasEmailCheck = emailIcon && emailIcon.innerHTML.includes('fa-check');
+                const hasAttachmentCheck = attachmentIcon && attachmentIcon.innerHTML.includes('fa-check');
+                
+                if (hasEmailCheck && hasAttachmentCheck) {
+                    row.classList.add('table-success'); // Green for complete and valid
+                } else if (emailValid && attachment) {
+                    row.classList.add('table-warning'); // Yellow for valid email but unknown attachment
+                } else {
+                    row.classList.add('table-danger'); // Red for errors
+                }
             }
         }
 
@@ -1081,6 +1456,38 @@
             }, 1000);
         }
 
+        function checkTableRowsAgainstAttachments(availableFiles) {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                const attachmentIcon = row.querySelector('.attachment-status-icon');
+                
+                if (attachmentInput && attachmentIcon) {
+                    const attachmentName = attachmentInput.value.trim();
+                    
+                    if (attachmentName) {
+                        const attachmentFound = checkAttachmentExists(attachmentName, availableFiles);
+                        
+                        if (attachmentFound.found) {
+                            attachmentIcon.innerHTML = '<i class="fas fa-check text-success"></i>';
+                            attachmentIcon.title = `Datei gefunden: ${attachmentFound.foundName}`;
+                        } else {
+                            attachmentIcon.innerHTML = '<i class="fas fa-times text-danger"></i>';
+                            attachmentIcon.title = 'Datei nicht gefunden';
+                        }
+                    } else {
+                        attachmentIcon.innerHTML = '';
+                        attachmentIcon.title = '';
+                    }
+                    
+                    // Update overall row status
+                    updateRowStatus(row);
+                }
+            });
+        }
+
         async function saveTableData() {
             const tableBody = document.getElementById('editable-table-body');
             const rows = tableBody.querySelectorAll('tr');
@@ -1100,10 +1507,20 @@
                         // Validate email format
                         const validation = validateEmailFormat(email);
                         if (validation.valid) {
-                            tableData.push({
+                            const rowData = {
                                 emails: email,
                                 attachments: attachment
+                            };
+                            
+                            // Collect placeholder values
+                            placeholders.forEach((placeholder, index) => {
+                                const placeholderInput = row.querySelector(`td:nth-child(${4 + index}) input`);
+                                if (placeholderInput) {
+                                    rowData[placeholder] = placeholderInput.value.trim();
+                                }
                             });
+                            
+                            tableData.push(rowData);
                         } else {
                             invalidEmails.push({
                                 email: email,
@@ -1584,6 +2001,9 @@
                     document.getElementById('attachments-status').innerHTML = 
                         `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Anhänge hochgeladen</div>`;
                     showToast(`${result.uploaded_files.length} Anhänge erfolgreich hochgeladen!`, 'success');
+                    
+                    // Auto-check attachments after upload
+                    autoCheckAttachments();
                 } else {
                     throw new Error(result.detail);
                 }
@@ -1606,82 +2026,11 @@
             const rows = tableBody.querySelectorAll('tr');
             
             rows.forEach(row => {
-                row.classList.remove('row-found', 'row-missing', 'row-partial');
-                const statusCell = row.querySelector('td:nth-child(4)');
-                if (statusCell) {
-                    statusCell.innerHTML = '<span class="text-muted">-</span>';
-                    statusCell.title = '';
-                }
-            });
-        }
-
-        function checkTableRowsAgainstAttachments(uploadedFiles) {
-            const tableBody = document.getElementById('editable-table-body');
-            const rows = tableBody.querySelectorAll('tr');
-            
-            let foundCount = 0;
-            let missingCount = 0;
-            let totalRows = 0;
-            
-            rows.forEach(row => {
-                const emailInput = row.querySelector('td:nth-child(2) input');
-                const attachmentInput = row.querySelector('td:nth-child(3) input');
-                const statusCell = row.querySelector('td:nth-child(4)');
-                
-                const email = emailInput.value.trim();
-                const attachment = attachmentInput.value.trim();
-                
-                // Only check rows that have both email and attachment filled
-                if (email && attachment) {
-                    totalRows++;
-                    
-                    // First check email validity
-                    const emailValidation = validateEmailFormat(email);
-                    
-                    // Remove existing status classes
-                    row.classList.remove('row-found', 'row-missing', 'row-partial');
-                    
-                    if (!emailValidation.valid) {
-                        // Invalid email format
-                        row.classList.add('row-missing');
-                        missingCount++;
-                        
-                        // Set status in dedicated status column
-                        statusCell.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Ungültige E-Mail</span>';
-                        statusCell.title = emailValidation.error;
-                        
-                        // Mark email input as invalid
-                        emailInput.classList.add('is-invalid');
-                        emailInput.title = emailValidation.error;
-                    } else {
-                        // Valid email, now check attachment
-                        emailInput.classList.remove('is-invalid');
-                        emailInput.title = '';
-                        
-                        const attachmentFound = checkAttachmentExists(attachment, uploadedFiles);
-                        
-                        if (attachmentFound.found) {
-                            row.classList.add('row-found');
-                            foundCount++;
-                            
-                            // Set status in dedicated status column
-                            statusCell.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Gefunden</span>';
-                            statusCell.title = `Datei gefunden: ${attachmentFound.filename}`;
-                        } else {
-                            row.classList.add('row-missing');
-                            missingCount++;
-                            
-                            // Set status in dedicated status column
-                            statusCell.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle"></i> Anhang fehlt</span>';
-                            statusCell.title = 'Datei nicht gefunden';
-                        }
-                    }
-                } else {
-                    // Clear status for empty rows
-                    const statusCell = row.querySelector('td:nth-child(4)');
-                    statusCell.innerHTML = '<span class="text-muted">-</span>';
-                    statusCell.title = '';
-                }
+                row.classList.remove('table-success', 'table-danger', 'table-warning');
+                const emailIcon = row.querySelector('.email-status-icon');
+                const attachmentIcon = row.querySelector('.attachment-status-icon');
+                if (emailIcon) emailIcon.innerHTML = '';
+                if (attachmentIcon) attachmentIcon.innerHTML = '';
             });
         }
         
@@ -1900,6 +2249,10 @@
             const cancelBtn = document.getElementById('cancel-btn');
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sende...';
+            
+            // Reset and show cancel button
+            cancelBtn.disabled = false;
+            cancelBtn.innerHTML = '<i class="fas fa-stop"></i> Abbrechen';
             cancelBtn.style.display = 'inline-block';
 
             // Filter out emails without valid attachments upfront
@@ -2007,6 +2360,12 @@
                     // Check if cancellation was requested
                     if (shouldCancel) {
                         showToast('E-Mail-Versand wurde abgebrochen!', 'info');
+                        
+                        // Reset buttons on cancellation
+                        sendBtn.disabled = false;
+                        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Emails jetzt versenden';
+                        cancelBtn.style.display = 'none';
+                        
                         break;
                     }
 
@@ -2025,7 +2384,7 @@
                             headers: getHeaders(),
                             body: JSON.stringify({
                                 config: configWithSubject,
-                                csv_data: [{ emails: email.emails, attachments: email.attachments }] // Send only one email at a time
+                                csv_data: [email] // Send complete email object with all placeholder data
                             })
                         });
                         
@@ -2142,19 +2501,26 @@
                     showToast(`${skippedCount} E-Mails übersprungen (kein Anhang gefunden)!`, 'info');
                 }
                 
+                // Hide the send button completely after successful completion (only if not cancelled)
+                if (!shouldCancel) {
+                    sendBtn.style.display = 'none';
+                    cancelBtn.style.display = 'none';
+                }
+                
             } catch (error) {
                 document.getElementById('send-results').innerHTML = 
                     `<div class="alert alert-danger">Fehler beim E-Mail-Versand: ${error.message}</div>`;
                 showToast('Fehler beim E-Mail-Versand!', 'error');
+                
+                // Reset buttons only on error
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Emails jetzt versenden';
+                cancelBtn.style.display = 'none';
+                
             } finally {
                 // Reset sending state
                 isSending = false;
                 shouldCancel = false;
-                
-                // Reset buttons
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Emails jetzt versenden';
-                cancelBtn.style.display = 'none';
                 
                 setTimeout(() => {
                     document.getElementById('send-progress').style.display = 'none';
@@ -2175,8 +2541,26 @@
         }
 
         // Initialize
-        updateStepIndicator();
-        showSection('config-section');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load placeholders from localStorage
+            const savedPlaceholders = localStorage.getItem('emailPlaceholders');
+            if (savedPlaceholders) {
+                placeholders = JSON.parse(savedPlaceholders);
+                updatePlaceholdersList();
+            }
+            
+            // Initialize table with proper structure
+            updateTableStructure();
+            
+            // Add initial empty row if table is empty
+            const tableBody = document.getElementById('editable-table-body');
+            if (tableBody.children.length === 0) {
+                addTableRowWithData('', '', -1);
+            }
+            
+            updateStepIndicator();
+            showSection('config-section');
+        });
     </script>
 </body>
 </html>

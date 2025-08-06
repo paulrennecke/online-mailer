@@ -186,6 +186,10 @@ async def upload_data_file(request: Request, file: UploadFile = File(...)):
         else:
             raise HTTPException(status_code=400, detail="Nur CSV-, XLSX- und XLS-Dateien werden unterstützt")
         
+        # Clean the dataframe: replace NaN values with empty strings and convert to string
+        df = df.fillna('')
+        df = df.astype(str)
+        
         # Store original dataframe in session
         session["original_dataframe"] = df.to_dict('records')
         session["dataframe_columns"] = list(df.columns)
@@ -213,6 +217,7 @@ async def select_columns(request: Request):
         data = await request.json()
         email_column = data.get('email_column')
         attachment_column = data.get('attachment_column')
+        placeholder_columns = data.get('placeholder_columns', {})  # Dict mapping placeholder names to column names
         
         if not email_column or not attachment_column:
             raise HTTPException(status_code=400, detail="Email- und Anhang-Spalten müssen ausgewählt werden")
@@ -225,17 +230,37 @@ async def select_columns(request: Request):
         # Create processed data with selected columns
         processed_data = []
         for row in original_data:
-            if pd.notna(row.get(email_column)) and pd.notna(row.get(attachment_column)):
-                processed_data.append({
-                    "emails": str(row[email_column]).strip(),
-                    "attachments": str(row[attachment_column]).strip()
-                })
+            email_value = row.get(email_column, '').strip()
+            attachment_value = row.get(attachment_column, '').strip()
+            
+            # Include ALL rows, even those with empty values
+            # Clean up 'nan' values from pandas
+            if email_value == 'nan':
+                email_value = ''
+            if attachment_value == 'nan':
+                attachment_value = ''
+            
+            row_data = {
+                "emails": email_value,
+                "attachments": attachment_value
+            }
+            
+            # Add placeholder values
+            for placeholder_name, column_name in placeholder_columns.items():
+                if column_name and column_name in row:
+                    placeholder_value = row.get(column_name, '').strip()
+                    row_data[placeholder_name] = placeholder_value if placeholder_value != 'nan' else ''
+                else:
+                    row_data[placeholder_name] = ''
+            
+            processed_data.append(row_data)
         
         # Store processed data in session
         session["csv_data"] = processed_data
         session["selected_columns"] = {
             "email_column": email_column,
-            "attachment_column": attachment_column
+            "attachment_column": attachment_column,
+            "placeholder_columns": placeholder_columns
         }
         
         return {
@@ -630,6 +655,14 @@ async def send_emails(request: Request, request_data: dict):
                 
                 # Process email body to replace image references and attach images
                 processed_email_body = email_body
+                
+                # Replace placeholders with values from CSV data
+                for key, value in row.items():
+                    if key not in ['emails', 'attachments']:  # Skip standard fields
+                        placeholder = f"[{key}]"
+                        if placeholder in processed_email_body:
+                            processed_email_body = processed_email_body.replace(placeholder, str(value))
+                            logging.info(f"Replaced placeholder {placeholder} with '{value}' for {email}")
                 
                 # Add all session images as inline attachments and update HTML references
                 for filename, file_data in session.get("images", {}).items():
