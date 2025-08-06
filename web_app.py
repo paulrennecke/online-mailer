@@ -1,5 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import smtplib
@@ -18,8 +18,6 @@ from email import encoders
 import traceback
 import logging
 from typing import List, Dict
-import json
-from pydantic import BaseModel
 
 app = FastAPI(title="Attachments Mailer", description="Email Versand Tool")
 
@@ -46,7 +44,6 @@ async def get_session_file(session_id: str, filename: str):
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     
-    from fastapi.responses import FileResponse
     return FileResponse(file_path)
 
 # Templates
@@ -89,17 +86,6 @@ def cleanup_old_sessions():
             shutil.rmtree(session_data["temp_dir"])
         del user_sessions[session_id]
 
-class EmailConfig(BaseModel):
-    email_login: str
-    email_password: str
-    smtp_server: str
-    smtp_port: int
-    email_subject: str
-
-class EmailData(BaseModel):
-    emails: List[str]
-    attachments: List[str]
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     cleanup_old_sessions()  # Clean up old sessions on page load
@@ -141,29 +127,6 @@ async def test_config(config: dict):
     except Exception as e:
         logging.error(f"Config test error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fehler beim Testen der Konfiguration: {str(e)}")
-
-@app.post("/upload-csv")
-async def upload_csv(request: Request, file: UploadFile = File(...)):
-    try:
-        session_id = get_session_id(request)
-        session = user_sessions[session_id]
-        
-        contents = await file.read()
-        df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
-        
-        # Validate CSV structure
-        if 'emails' not in df.columns or 'attachments' not in df.columns:
-            raise HTTPException(status_code=400, detail="CSV muss 'emails' und 'attachments' Spalten enthalten")
-        
-        # Convert to list of dictionaries
-        data = df.to_dict('records')
-        
-        # Store CSV data in session
-        session["csv_data"] = data
-        
-        return {"success": True, "data": data}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Fehler beim Lesen der CSV: {str(e)}")
 
 @app.post("/upload-data-file")
 async def upload_data_file(request: Request, file: UploadFile = File(...)):

@@ -6,7 +6,7 @@
     <title>Mailer - Email Versand Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link icon href="../static/icon.ico" rel="icon" type="image/x-icon">
+    <link rel="icon" href="../static/icon.ico" type="image/x-icon">
     <style>
         .upload-area {
             border: 2px dashed #dee2e6;
@@ -825,7 +825,8 @@
                     <input type="text" class="form-control editable-cell" 
                            value="${attachment}" 
                            placeholder="dateiname (ohne .pdf)"
-                           onchange="clearRowStatus(this)">
+                           onchange="validateAndClearAttachmentRowStatus(this)"
+                           onblur="validateAndClearAttachmentRowStatus(this)">
                     <span class="attachment-status-icon position-absolute top-50 end-0 translate-middle-y me-2" style="pointer-events: none;"></span>
                 </td>
             `;
@@ -1333,6 +1334,123 @@
             }, 100);
         }
 
+        function validateAndClearAttachmentRowStatus(inputElement) {
+            // Specific handler for attachment fields with immediate validation
+            const row = inputElement.closest('tr');
+            const attachmentValue = inputElement.value.trim();
+            const attachmentIcon = row.querySelector('.attachment-status-icon');
+            
+            // Clear existing row status
+            row.classList.remove('table-success', 'table-danger', 'table-warning');
+            
+            // Reset attachment icon initially
+            if (attachmentIcon) {
+                attachmentIcon.innerHTML = '';
+                attachmentIcon.title = '';
+            }
+            
+            // If attachment field has value, immediately check against available files
+            if (attachmentValue) {
+                // Show loading state while checking
+                if (attachmentIcon) {
+                    attachmentIcon.innerHTML = '<i class="fas fa-clock text-muted"></i>';
+                    attachmentIcon.title = 'Überprüfe Datei...';
+                }
+                
+                // Check attachments immediately for this specific row using central function
+                // Use setTimeout to ensure the input value is properly set before checking
+                setTimeout(() => {
+                    checkAttachments([row]);
+                }, 50);
+            } else {
+                // If field is empty, clear the icon immediately
+                if (attachmentIcon) {
+                    attachmentIcon.innerHTML = '';
+                    attachmentIcon.title = '';
+                }
+            }
+            
+            // Update overall row status after a short delay
+            setTimeout(() => updateRowStatus(row), 150);
+        }
+
+        // Central attachment checking function - can check single row or all rows
+        let attachmentCheckTimeout;
+        async function checkAttachments(specificRows = null) {
+            try {
+                const response = await fetch(basePath + 'list-attachments', {
+                    method: 'GET',
+                    headers: getHeaders()
+                });
+                const result = await response.json();
+                
+                if (result.success && result.files) {
+                    updateAttachmentStatusIcons(result.files, specificRows);
+                }
+            } catch (error) {
+                // Silent error for attachment checks
+                if (specificRows) {
+                    // For specific rows, show error icon
+                    specificRows.forEach(row => {
+                        const attachmentIcon = row.querySelector('.attachment-status-icon');
+                        if (attachmentIcon) {
+                            attachmentIcon.innerHTML = '<i class="fas fa-question text-warning"></i>';
+                            attachmentIcon.title = 'Fehler beim Überprüfen der Datei';
+                        }
+                    });
+                } else {
+                    console.log('Attachment check failed:', error.message);
+                }
+            }
+        }
+
+        function updateAttachmentStatusIcons(availableFiles, specificRows = null) {
+            const tableBody = document.getElementById('editable-table-body');
+            const rows = specificRows || tableBody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                const attachmentIcon = row.querySelector('.attachment-status-icon');
+                
+                if (attachmentInput && attachmentIcon) {
+                    // Get the current value from the input field
+                    const attachmentName = attachmentInput.value.trim();
+                    
+                    if (attachmentName) {
+                        const attachmentFound = checkAttachmentExists(attachmentName, availableFiles);
+                        
+                        if (attachmentFound.found) {
+                            attachmentIcon.innerHTML = '<i class="fas fa-check text-success"></i>';
+                            attachmentIcon.title = `Datei gefunden: ${attachmentFound.filename}`;
+                        } else {
+                            attachmentIcon.innerHTML = '<i class="fas fa-times text-danger"></i>';
+                            attachmentIcon.title = 'Datei nicht gefunden';
+                        }
+                    } else {
+                        // Empty field - clear icon
+                        attachmentIcon.innerHTML = '';
+                        attachmentIcon.title = '';
+                    }
+                    
+                    // Update overall row status after updating the icon
+                    setTimeout(() => updateRowStatus(row), 10);
+                }
+            });
+        }
+
+        // Debounced function to auto-check all attachments
+        function autoCheckAttachments() {
+            // Clear previous timeout
+            if (attachmentCheckTimeout) {
+                clearTimeout(attachmentCheckTimeout);
+            }
+            
+            // Set new timeout to check after 1 second of inactivity
+            attachmentCheckTimeout = setTimeout(() => {
+                checkAttachments(); // Check all rows
+            }, 1000);
+        }
+
         function validateAndClearRowStatus(inputElement) {
             const row = inputElement.closest('tr');
             const email = inputElement.value.trim();
@@ -1385,7 +1503,6 @@
             const attachment = attachmentInput.value.trim();
             
             let emailValid = false;
-            let attachmentValid = false;
             
             // Check email validity
             if (email) {
@@ -1401,15 +1518,18 @@
                 emailIcon.innerHTML = '';
             }
             
-            // Check attachment (will be updated by autoCheckAttachments)
+            // Attachment status is handled by checkAttachments function
+            // Only show loading state if attachment field has value but no status icon yet
             if (attachment && attachmentIcon) {
-                // This will be set by checkTableRowsAgainstAttachments
-                // For now, just show a neutral state
-                if (!attachmentIcon.innerHTML) {
+                const hasIcon = attachmentIcon.innerHTML.trim() !== '';
+                if (!hasIcon) {
                     attachmentIcon.innerHTML = '<i class="fas fa-clock text-muted"></i>';
+                    attachmentIcon.title = 'Überprüfe Datei...';
                 }
-            } else if (attachmentIcon) {
+            } else if (!attachment && attachmentIcon) {
+                // Clear icon if attachment field is empty
                 attachmentIcon.innerHTML = '';
+                attachmentIcon.title = '';
             }
             
             // Set row color based on overall status
@@ -1418,74 +1538,18 @@
             if (email && attachment) {
                 const hasEmailCheck = emailIcon && emailIcon.innerHTML.includes('fa-check');
                 const hasAttachmentCheck = attachmentIcon && attachmentIcon.innerHTML.includes('fa-check');
+                const hasAttachmentError = attachmentIcon && attachmentIcon.innerHTML.includes('fa-times');
                 
                 if (hasEmailCheck && hasAttachmentCheck) {
                     row.classList.add('table-success'); // Green for complete and valid
+                } else if (hasEmailCheck && hasAttachmentError) {
+                    row.classList.add('table-danger'); // Red for valid email but missing attachment
                 } else if (emailValid && attachment) {
-                    row.classList.add('table-warning'); // Yellow for valid email but unknown attachment
+                    row.classList.add('table-warning'); // Yellow for valid email but unknown attachment status
                 } else {
-                    row.classList.add('table-danger'); // Red for errors
+                    row.classList.add('table-danger'); // Red for other errors
                 }
             }
-        }
-
-        // Debounced function to auto-check attachments
-        let autoCheckTimeout;
-        function autoCheckAttachments() {
-            // Clear previous timeout
-            if (autoCheckTimeout) {
-                clearTimeout(autoCheckTimeout);
-            }
-            
-            // Set new timeout to check after 1 second of inactivity
-            autoCheckTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(basePath + 'list-attachments', {
-                        method: 'GET',
-                        headers: getHeaders()
-                    });
-                    const result = await response.json();
-                    
-                    if (result.success && result.files) {
-                        checkTableRowsAgainstAttachments(result.files);
-                    }
-                } catch (error) {
-                    // Silent error - don't show toast for auto-check failures
-                    console.log('Auto-check failed:', error.message);
-                }
-            }, 1000);
-        }
-
-        function checkTableRowsAgainstAttachments(availableFiles) {
-            const tableBody = document.getElementById('editable-table-body');
-            const rows = tableBody.querySelectorAll('tr');
-            
-            rows.forEach(row => {
-                const attachmentInput = row.querySelector('td:nth-child(3) input');
-                const attachmentIcon = row.querySelector('.attachment-status-icon');
-                
-                if (attachmentInput && attachmentIcon) {
-                    const attachmentName = attachmentInput.value.trim();
-                    
-                    if (attachmentName) {
-                        const attachmentFound = checkAttachmentExists(attachmentName, availableFiles);
-                        
-                        if (attachmentFound.found) {
-                            attachmentIcon.innerHTML = '<i class="fas fa-check text-success"></i>';
-                            attachmentIcon.title = `Datei gefunden: ${attachmentFound.foundName}`;
-                        } else {
-                            attachmentIcon.innerHTML = '<i class="fas fa-times text-danger"></i>';
-                            attachmentIcon.title = 'Datei nicht gefunden';
-                        }
-                    } else {
-                        attachmentIcon.innerHTML = '';
-                        attachmentIcon.title = '';
-                    }
-                    
-                    // Update overall row status
-                    updateRowStatus(row);
-                }
-            });
         }
 
         async function saveTableData() {
@@ -2038,29 +2102,17 @@
             // Remove file extension from attachment name for comparison
             const baseAttachmentName = attachmentName.replace(/\.[^/.]+$/, '').toLowerCase();
             
-            // Check multiple matching strategies
+            // Check for exact matches only
             for (const uploadedFile of uploadedFiles) {
                 const uploadedBaseName = uploadedFile.replace(/\.[^/.]+$/, '').toLowerCase();
                 
-                // Strategy 1: Exact match (with and without extension)
-                if (attachmentName.toLowerCase() === uploadedFile.toLowerCase() ||
-                    baseAttachmentName === uploadedBaseName) {
+                // Strategy 1: Exact match with extension
+                if (attachmentName.toLowerCase() === uploadedFile.toLowerCase()) {
                     return { found: true, filename: uploadedFile };
                 }
                 
-                // Strategy 2: Partial match (attachment name contains uploaded file name or vice versa)
-                if (baseAttachmentName.includes(uploadedBaseName) || 
-                    uploadedBaseName.includes(baseAttachmentName)) {
-                    return { found: true, filename: uploadedFile };
-                }
-                
-                // Strategy 3: Remove common separators and try again
-                const normalizedAttachment = baseAttachmentName.replace(/[-_\s]/g, '');
-                const normalizedUploaded = uploadedBaseName.replace(/[-_\s]/g, '');
-                
-                if (normalizedAttachment === normalizedUploaded ||
-                    normalizedAttachment.includes(normalizedUploaded) ||
-                    normalizedUploaded.includes(normalizedAttachment)) {
+                // Strategy 2: Exact match without extension
+                if (baseAttachmentName === uploadedBaseName) {
                     return { found: true, filename: uploadedFile };
                 }
             }
