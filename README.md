@@ -5,6 +5,9 @@ Eine Webanwendung für den E-Mail-Versand mit personalisierten Anhängen.
 Wenn du nur ein simples Python-Script suchst, das das erledigt:
 [simple-mailer](https://github.com/paulrennecke/simple-mailer)
 
+###  [Live Demo](https://paul-rennecke.de/mailer)
+
+
 ## Features
 
 - **Web-Interface**: Benutzerfreundliche Oberfläche für E-Mail-Konfiguration und -Versand
