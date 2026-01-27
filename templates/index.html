@@ -74,6 +74,14 @@
             outline: 2px solid #dc3545;
             border-radius: 0.25rem;
         }
+        .attachment-textarea {
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .attachment-textarea::placeholder {
+            font-size: 0.85em;
+            color: #999;
+        }
         .table-actions {
             white-space: nowrap;
         }
@@ -397,7 +405,7 @@
                                         <tr>
                                             <th class="text-center">#</th>
                                             <th>Email-Adresse</th>
-                                            <th>Anhang</th>
+                                            <th>Anhänge <small class="text-muted">(pro Zeile/Komma ein Anhang)</small></th>
                                             <th class="text-center">
                                                 <button type="button" class="btn btn-sm btn-outline-danger" 
                                                         onclick="clearAllTableRows()" title="Alle Zeilen löschen">
@@ -414,7 +422,7 @@
                             <div class="mt-2">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Tragen Sie Email-Adressen und Anhang-Namen ein oder importieren Sie Daten aus einer CSV/XLSX-Datei.
+                                    Tragen Sie Email-Adressen und Anhang-Namen ein (mehrere Anhänge möglich) oder importieren Sie Daten aus einer CSV/XLSX-Datei.
                                 </small>
                             </div>
                         </div>
@@ -724,7 +732,7 @@
             let headerHtml = `
                 <th class="text-center">#</th>
                 <th>Email-Adresse</th>
-                <th>Anhang</th>
+                <th>Anhänge <small class="text-muted">(pro Zeile/Komma ein Anhang)</small></th>
             `;
             
             // Add placeholder columns
@@ -753,7 +761,8 @@
             
             rows.forEach((row, index) => {
                 const emailInput = row.querySelector('td:nth-child(2) input');
-                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                // Support both textarea (new) and input (fallback for old structure)
+                const attachmentInput = row.querySelector('td:nth-child(3) textarea') || row.querySelector('td:nth-child(3) input');
                 
                 if (emailInput && attachmentInput) {
                     const email = emailInput.value;
@@ -831,12 +840,12 @@
                     <span class="email-status-icon position-absolute top-50 end-0 translate-middle-y me-2" style="pointer-events: none;"></span>
                 </td>
                 <td class="position-relative">
-                    <input type="text" class="form-control editable-cell" 
-                           value="${attachment}" 
-                           placeholder="dateiname (ohne .pdf)"
+                    <textarea class="form-control editable-cell attachment-textarea" 
+                           placeholder="dateiname1&#10;dateiname2&#10;(pro Zeile/Komma ein Anhang)"
                            onchange="validateAndClearAttachmentRowStatus(this)"
-                           onblur="validateAndClearAttachmentRowStatus(this)">
-                    <span class="attachment-status-icon position-absolute top-50 end-0 translate-middle-y me-2" style="pointer-events: none;"></span>
+                           onblur="validateAndClearAttachmentRowStatus(this)"
+                           style="min-height: 60px; resize: vertical;">${attachment}</textarea>
+                    <span class="attachment-status-icon position-absolute top-0 end-0 me-2 mt-1" style="pointer-events: none;"></span>
                 </td>
             `;
             
@@ -1418,22 +1427,50 @@
             const rows = specificRows || tableBody.querySelectorAll('tr');
             
             rows.forEach(row => {
-                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                // Support both textarea (new) and input (fallback for old structure)
+                const attachmentInput = row.querySelector('td:nth-child(3) textarea') || row.querySelector('td:nth-child(3) input');
                 const attachmentIcon = row.querySelector('.attachment-status-icon');
                 
                 if (attachmentInput && attachmentIcon) {
-                    // Get the current value from the input field
-                    const attachmentName = attachmentInput.value.trim();
+                    // Get the current value from the input/textarea field
+                    const attachmentValue = attachmentInput.value.trim();
                     
-                    if (attachmentName) {
-                        const attachmentFound = checkAttachmentExists(attachmentName, availableFiles);
+                    if (attachmentValue) {
+                        // Parse multiple attachments (separated by newlines or commas)
+                        const attachmentNames = attachmentValue
+                            .split(/[\n,]+/)
+                            .map(name => name.trim())
+                            .filter(name => name.length > 0);
                         
-                        if (attachmentFound.found) {
-                            attachmentIcon.innerHTML = '<i class="fas fa-check text-success"></i>';
-                            attachmentIcon.title = `Datei gefunden: ${attachmentFound.filename}`;
+                        let foundCount = 0;
+                        let missingCount = 0;
+                        const foundFiles = [];
+                        const missingFiles = [];
+                        
+                        attachmentNames.forEach(attachmentName => {
+                            const attachmentFound = checkAttachmentExists(attachmentName, availableFiles);
+                            if (attachmentFound.found) {
+                                foundCount++;
+                                foundFiles.push(attachmentFound.filename);
+                            } else {
+                                missingCount++;
+                                missingFiles.push(attachmentName);
+                            }
+                        });
+                        
+                        // Update icon based on results
+                        if (missingCount === 0 && foundCount > 0) {
+                            // All attachments found
+                            attachmentIcon.innerHTML = `<span class="badge bg-success">${foundCount}</span>`;
+                            attachmentIcon.title = `Alle ${foundCount} Datei(en) gefunden: ${foundFiles.join(', ')}`;
+                        } else if (foundCount === 0) {
+                            // No attachments found
+                            attachmentIcon.innerHTML = `<span class="badge bg-danger">${missingCount}</span>`;
+                            attachmentIcon.title = `Keine Datei(en) gefunden: ${missingFiles.join(', ')}`;
                         } else {
-                            attachmentIcon.innerHTML = '<i class="fas fa-times text-danger"></i>';
-                            attachmentIcon.title = 'Datei nicht gefunden';
+                            // Some attachments found, some missing
+                            attachmentIcon.innerHTML = `<span class="badge bg-warning">${foundCount}/${attachmentNames.length}</span>`;
+                            attachmentIcon.title = `Gefunden: ${foundFiles.join(', ')}\nFehlend: ${missingFiles.join(', ')}`;
                         }
                     } else {
                         // Empty field - clear icon
@@ -1502,7 +1539,8 @@
 
         function updateRowStatus(row) {
             const emailInput = row.querySelector('td:nth-child(2) input');
-            const attachmentInput = row.querySelector('td:nth-child(3) input');
+            // Support both textarea (new) and input (fallback)
+            const attachmentInput = row.querySelector('td:nth-child(3) textarea') || row.querySelector('td:nth-child(3) input');
             const emailIcon = row.querySelector('.email-status-icon');
             const attachmentIcon = row.querySelector('.attachment-status-icon');
             
@@ -1533,7 +1571,7 @@
                 const hasIcon = attachmentIcon.innerHTML.trim() !== '';
                 if (!hasIcon) {
                     attachmentIcon.innerHTML = '<i class="fas fa-clock text-muted"></i>';
-                    attachmentIcon.title = 'Überprüfe Datei...';
+                    attachmentIcon.title = 'Überprüfe Datei(en)...';
                 }
             } else if (!attachment && attachmentIcon) {
                 // Clear icon if attachment field is empty
@@ -1546,13 +1584,17 @@
             
             if (email && attachment) {
                 const hasEmailCheck = emailIcon && emailIcon.innerHTML.includes('fa-check');
-                const hasAttachmentCheck = attachmentIcon && attachmentIcon.innerHTML.includes('fa-check');
-                const hasAttachmentError = attachmentIcon && attachmentIcon.innerHTML.includes('fa-times');
+                // Check for success badge or check icon for attachments
+                const hasAttachmentSuccess = attachmentIcon && (attachmentIcon.innerHTML.includes('bg-success') || attachmentIcon.innerHTML.includes('fa-check'));
+                const hasAttachmentError = attachmentIcon && (attachmentIcon.innerHTML.includes('bg-danger') || attachmentIcon.innerHTML.includes('fa-times'));
+                const hasAttachmentPartial = attachmentIcon && attachmentIcon.innerHTML.includes('bg-warning');
                 
-                if (hasEmailCheck && hasAttachmentCheck) {
+                if (hasEmailCheck && hasAttachmentSuccess) {
                     row.classList.add('table-success'); // Green for complete and valid
                 } else if (hasEmailCheck && hasAttachmentError) {
                     row.classList.add('table-danger'); // Red for valid email but missing attachment
+                } else if (hasEmailCheck && hasAttachmentPartial) {
+                    row.classList.add('table-warning'); // Yellow for valid email but partial attachments
                 } else if (emailValid && attachment) {
                     row.classList.add('table-warning'); // Yellow for valid email but unknown attachment status
                 } else {
@@ -1570,7 +1612,8 @@
             
             rows.forEach(row => {
                 const emailInput = row.querySelector('td:nth-child(2) input');
-                const attachmentInput = row.querySelector('td:nth-child(3) input');
+                // Support both textarea (new) and input (fallback)
+                const attachmentInput = row.querySelector('td:nth-child(3) textarea') || row.querySelector('td:nth-child(3) input');
                 
                 if (emailInput && attachmentInput) {
                     const email = emailInput.value.trim();
@@ -2129,6 +2172,47 @@
             return { found: false, filename: null };
         }
 
+        // Check multiple attachments (for use during send pre-filtering)
+        function checkMultipleAttachments(attachmentField, uploadedFiles) {
+            // Parse multiple attachments (separated by newlines or commas)
+            const attachmentNames = attachmentField
+                .replace(/\r\n/g, '\n')
+                .replace(/,/g, '\n')
+                .split('\n')
+                .map(name => name.trim())
+                .filter(name => name.length > 0);
+            
+            if (attachmentNames.length === 0) {
+                return { found: false, foundCount: 0, missingCount: 0, foundFiles: [], missingFiles: [] };
+            }
+            
+            let foundCount = 0;
+            let missingCount = 0;
+            const foundFiles = [];
+            const missingFiles = [];
+            
+            attachmentNames.forEach(attachmentName => {
+                const result = checkAttachmentExists(attachmentName, uploadedFiles);
+                if (result.found) {
+                    foundCount++;
+                    foundFiles.push(result.filename);
+                } else {
+                    missingCount++;
+                    missingFiles.push(attachmentName);
+                }
+            });
+            
+            return {
+                found: foundCount > 0,
+                allFound: missingCount === 0,
+                foundCount: foundCount,
+                missingCount: missingCount,
+                totalCount: attachmentNames.length,
+                foundFiles: foundFiles,
+                missingFiles: missingFiles
+            };
+        }
+
         async function generatePreview() {
             if (!csvData) return;
 
@@ -2210,10 +2294,22 @@
                 `;
                 
                 result.valid_emails.forEach((email, index) => {
+                    const attachmentCount = email.attachment_count || 1;
+                    const statusClass = email.status === 'partial' ? 'text-warning' : 'text-success';
+                    const statusIcon = email.status === 'partial' ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-paperclip"></i>';
+                    const attachmentLabel = attachmentCount === 1 ? 'Anhang' : 'Anhänge';
+                    const missingInfo = email.missing ? ` <small class="text-danger">(Fehlend: ${email.missing})</small>` : '';
+                    
                     previewHtml += `
-                        <div class="d-flex justify-content-between align-items-center py-1">
+                        <div class="d-flex justify-content-between align-items-start py-1 border-bottom">
                             <span>${index + 1}. ${email.email}</span>
-                            <small class="text-success">${email.attachment}</small>
+                            <div class="text-end">
+                                <span class="badge ${email.status === 'partial' ? 'bg-warning' : 'bg-success'}">
+                                    ${statusIcon} ${attachmentCount} ${attachmentLabel}
+                                </span>
+                                <br><span class="text-muted" style="font-size: 0.75em;">${email.attachment}</span>
+                                ${missingInfo}
+                            </div>
                         </div>
                     `;
                 });
@@ -2338,12 +2434,17 @@
                         return;
                     }
                     
-                    // Then check attachment existence
-                    const attachmentFound = checkAttachmentExists(email.attachments, availableAttachments);
-                    if (attachmentFound.found) {
+                    // Then check attachment existence (supports multiple attachments)
+                    const attachmentCheck = checkMultipleAttachments(email.attachments, availableAttachments);
+                    if (attachmentCheck.found) {
+                        // At least one attachment found - proceed with sending
+                        if (attachmentCheck.missingCount > 0) {
+                            // Some missing, but we'll send with found attachments
+                            console.log(`Email to ${email.emails}: Found ${attachmentCheck.foundCount}/${attachmentCheck.totalCount} attachments`);
+                        }
                         validEmails.push({ ...email, originalIndex: index });
                     } else {
-                        skippedEmails.push({ ...email, originalIndex: index, reason: 'Anhang nicht gefunden' });
+                        skippedEmails.push({ ...email, originalIndex: index, reason: `Keine Anhänge gefunden: ${attachmentCheck.missingFiles.join(', ')}` });
                     }
                 });
 

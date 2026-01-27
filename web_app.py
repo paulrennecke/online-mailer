@@ -475,40 +475,59 @@ async def preview_emails(request: Request, email_data: dict):
         if not csv_data:
             raise HTTPException(status_code=400, detail="Keine CSV-Daten vorhanden")
         
+        # Helper function to find attachment
+        def find_attachment(attachment_filename, session_attachments):
+            for filename, file_data in session_attachments.items():
+                original_name = file_data["original_name"]
+                if (original_name == attachment_filename or
+                    os.path.splitext(original_name)[0] == os.path.splitext(attachment_filename)[0] or
+                    attachment_filename + '.pdf' == original_name or
+                    os.path.splitext(original_name)[0] == attachment_filename):
+                    return True, original_name
+            return False, None
+        
         valid_emails = []
         invalid_emails = []
         
         for row in csv_data:
             email = row['emails']
-            attachment_filename = row['attachments']
+            attachment_field = row['attachments']
             
-            # Find attachment in session using same logic as send_emails
-            attachment_found = False
-            found_attachment_name = None
+            # Parse multiple attachments (separated by newlines or commas)
+            attachment_names = [name.strip() for name in attachment_field.replace('\r\n', '\n').replace(',', '\n').split('\n') if name.strip()]
             
-            for filename, file_data in session.get("attachments", {}).items():
-                original_name = file_data["original_name"]
-                
-                # Use same matching strategies as in send_emails
-                if (original_name == attachment_filename or
-                    os.path.splitext(original_name)[0] == os.path.splitext(attachment_filename)[0] or
-                    attachment_filename + '.pdf' == original_name or
-                    os.path.splitext(original_name)[0] == attachment_filename):
-                    
-                    attachment_found = True
-                    found_attachment_name = original_name
-                    break
+            found_attachments = []
+            missing_attachments = []
             
-            if attachment_found:
+            for attachment_filename in attachment_names:
+                attachment_found, found_name = find_attachment(attachment_filename, session.get("attachments", {}))
+                if attachment_found:
+                    found_attachments.append(found_name)
+                else:
+                    missing_attachments.append(attachment_filename)
+            
+            if found_attachments and not missing_attachments:
+                # All attachments found
                 valid_emails.append({
                     'email': email,
-                    'attachment': found_attachment_name,
+                    'attachment': ', '.join(found_attachments),
+                    'attachment_count': len(found_attachments),
                     'status': 'valid'
                 })
+            elif found_attachments and missing_attachments:
+                # Some attachments found, some missing - still add to valid but note
+                valid_emails.append({
+                    'email': email,
+                    'attachment': ', '.join(found_attachments),
+                    'attachment_count': len(found_attachments),
+                    'missing': ', '.join(missing_attachments),
+                    'status': 'partial'
+                })
             else:
+                # No attachments found
                 invalid_emails.append({
                     'email': email,
-                    'attachment': attachment_filename,
+                    'attachment': ', '.join(missing_attachments),
                     'status': 'missing_attachment'
                 })
         
@@ -557,6 +576,31 @@ async def send_emails(request: Request, request_data: dict):
             with open(email_body_path, 'r', encoding='utf-8') as f:
                 email_body = f.read()
         
+        # Helper function to find attachment in session
+        def find_attachment(attachment_filename, session_attachments):
+            for filename, file_data in session_attachments.items():
+                original_name = file_data["original_name"]
+                
+                # Strategy 1: Exact match with original name
+                if original_name == attachment_filename:
+                    return file_data["path"], original_name
+                
+                # Strategy 2: Match with filename (no extension) from CSV
+                original_name_no_ext = os.path.splitext(original_name)[0]
+                attachment_no_ext = os.path.splitext(attachment_filename)[0]
+                if original_name_no_ext == attachment_no_ext:
+                    return file_data["path"], original_name
+                
+                # Strategy 3: Check if CSV entry matches filename with .pdf extension
+                if attachment_filename + '.pdf' == original_name:
+                    return file_data["path"], original_name
+                
+                # Strategy 4: Check if original name without extension matches CSV entry
+                if original_name_no_ext == attachment_filename:
+                    return file_data["path"], original_name
+            
+            return None, None
+        
         # Connect to SMTP server
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.login(login_acc, login_pass)
@@ -567,48 +611,38 @@ async def send_emails(request: Request, request_data: dict):
         for row in csv_data:
             try:
                 email = row['emails']
-                attachment_filename = row['attachments']
+                attachment_field = row['attachments']
                 
-                # Find attachment in session - try multiple matching strategies
-                attachment_path = None
-                attachment_original_name = None
+                # Parse multiple attachments (separated by newlines or commas)
+                attachment_names = [name.strip() for name in attachment_field.replace('\r\n', '\n').replace(',', '\n').split('\n') if name.strip()]
                 
-                for filename, file_data in session.get("attachments", {}).items():
-                    original_name = file_data["original_name"]
-                    
-                    # Strategy 1: Exact match with original name
-                    if original_name == attachment_filename:
-                        attachment_path = file_data["path"]
-                        attachment_original_name = original_name
-                        break
-                    
-                    # Strategy 2: Match with filename (no extension) from CSV
-                    original_name_no_ext = os.path.splitext(original_name)[0]
-                    attachment_no_ext = os.path.splitext(attachment_filename)[0]
-                    if original_name_no_ext == attachment_no_ext:
-                        attachment_path = file_data["path"]
-                        attachment_original_name = original_name
-                        break
-                    
-                    # Strategy 3: Check if CSV entry matches filename with .pdf extension
-                    if attachment_filename + '.pdf' == original_name:
-                        attachment_path = file_data["path"]
-                        attachment_original_name = original_name
-                        break
-                    
-                    # Strategy 4: Check if original name without extension matches CSV entry
-                    if original_name_no_ext == attachment_filename:
-                        attachment_path = file_data["path"]
-                        attachment_original_name = original_name
-                        break
+                # Find all attachments
+                found_attachments = []
+                missing_attachments = []
                 
-                # Skip if attachment doesn't exist
-                if not attachment_path or not os.path.exists(attachment_path):
+                for attachment_filename in attachment_names:
+                    attachment_path, attachment_original_name = find_attachment(attachment_filename, session.get("attachments", {}))
+                    
+                    if attachment_path and os.path.exists(attachment_path):
+                        found_attachments.append({
+                            'path': attachment_path,
+                            'original_name': attachment_original_name,
+                            'requested_name': attachment_filename
+                        })
+                    else:
+                        missing_attachments.append(attachment_filename)
+                
+                # Skip if no attachments found
+                if not found_attachments:
                     failed_emails.append({
                         'email': email,
-                        'error': f'Anhang "{attachment_filename}" nicht gefunden'
+                        'error': f'Keine Anhänge gefunden: {", ".join(missing_attachments)}'
                     })
                     continue
+                
+                # Log warning if some attachments are missing but we have at least one
+                if missing_attachments:
+                    logging.warning(f"Email to {email}: Some attachments missing: {missing_attachments}, proceeding with found attachments: {[a['original_name'] for a in found_attachments]}")
                 
                 # Create a new message for each email
                 msg = MIMEMultipart()
@@ -654,20 +688,25 @@ async def send_emails(request: Request, request_data: dict):
                 # Attach the processed email body
                 msg.attach(MIMEText(processed_email_body, 'html'))
                 
-                # Create the attachment for this specific email
-                with open(attachment_path, 'rb') as attachment_file:
-                    part = MIMEBase('application', 'octet-stream')
-                    part.set_payload(attachment_file.read())
-                    encoders.encode_base64(part)
-                    # Use the original filename that was found
-                    display_filename = attachment_original_name if attachment_original_name else attachment_filename
-                    part.add_header('Content-Disposition', f'attachment; filename="{display_filename}"')
-                    msg.attach(part)
+                # Attach all found attachments
+                for attachment_info in found_attachments:
+                    attachment_path = attachment_info['path']
+                    attachment_original_name = attachment_info['original_name']
+                    
+                    with open(attachment_path, 'rb') as attachment_file:
+                        part = MIMEBase('application', 'octet-stream')
+                        part.set_payload(attachment_file.read())
+                        encoders.encode_base64(part)
+                        part.add_header('Content-Disposition', f'attachment; filename="{attachment_original_name}"')
+                        msg.attach(part)
+                    
+                    logging.info(f"Attached file {attachment_original_name} to email for {email}")
                 
                 # Send the email
                 text = msg.as_string()
                 server.sendmail(login_acc, email, text)
                 sent_emails.append(email)
+                logging.info(f"Successfully sent email to {email} with {len(found_attachments)} attachment(s)")
                 
             except Exception as e:
                 logging.error(f"Failed to send email to {email}: {str(e)}")
