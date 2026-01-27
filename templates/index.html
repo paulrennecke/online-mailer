@@ -315,13 +315,29 @@
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5>1. Anhänge (PDF-Dateien)</h5>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="cancel-upload-btn" style="display: none;" onclick="cancelUpload()">
+                                <i class="fas fa-stop"></i> Upload abbrechen
+                            </button>
                         </div>
-                        <div class="upload-area" onclick="document.getElementById('attachments-upload').click()">
+                        <div class="upload-area" id="upload-area" onclick="document.getElementById('attachments-upload').click()">
                             <i class="fas fa-file-pdf fa-3x text-muted mb-3"></i>
                             <p>PDF-Anhänge hier ablegen oder klicken zum Auswählen</p>
-                            <small class="text-muted">Mehrere PDF-Dateien auswählbar</small>
+                            <small class="text-muted">Mehrere PDF-Dateien auswählbar (auch 100+ Dateien)</small>
                         </div>
                         <input type="file" id="attachments-upload" accept=".pdf" multiple style="display: none;" onchange="uploadAttachments()">
+                        
+                        <!-- Upload Progress Section -->
+                        <div id="upload-progress-section" class="mt-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="upload-progress-text">Hochladen...</span>
+                                <span id="upload-progress-count">0 / 0</span>
+                            </div>
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" id="upload-progress-bar" style="width: 0%"></div>
+                            </div>
+                            <div id="upload-file-list" class="border rounded" style="max-height: 200px; overflow-y: auto; font-size: 0.85em;"></div>
+                        </div>
+                        
                         <div id="attachments-status" class="mt-2"></div>
                     </div>
 
@@ -2092,42 +2108,159 @@
             }
         }
 
-
+        // Upload state management
+        let uploadCancelled = false;
+        const BATCH_SIZE = 10; // Upload 10 files at a time for optimal performance
 
         async function uploadAttachments() {
-            const files = document.getElementById('attachments-upload').files;
+            const fileInput = document.getElementById('attachments-upload');
+            const files = Array.from(fileInput.files);
             if (files.length === 0) return;
 
-            const formData = new FormData();
-            for (let file of files) {
-                formData.append('files', file);
+            uploadCancelled = false;
+            const totalFiles = files.length;
+            let uploadedCount = 0;
+            let failedCount = 0;
+            const uploadedFiles = [];
+            const failedFiles = [];
+
+            // Show progress section
+            const progressSection = document.getElementById('upload-progress-section');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const progressText = document.getElementById('upload-progress-text');
+            const progressCount = document.getElementById('upload-progress-count');
+            const fileList = document.getElementById('upload-file-list');
+            const cancelBtn = document.getElementById('cancel-upload-btn');
+            const uploadArea = document.getElementById('upload-area');
+
+            progressSection.style.display = 'block';
+            cancelBtn.style.display = 'inline-block';
+            uploadArea.style.pointerEvents = 'none';
+            uploadArea.style.opacity = '0.5';
+            
+            // Get existing file count to create unique IDs for new files
+            const existingFileCount = fileList.querySelectorAll('.upload-file-item').length;
+            
+            // Add new files to the list (append, don't replace)
+            let fileListHtml = '';
+            for (let i = 0; i < totalFiles; i++) {
+                const fileId = existingFileCount + i;
+                fileListHtml += `
+                    <div class="d-flex justify-content-between align-items-center px-2 py-1 border-bottom upload-file-item" id="file-${fileId}">
+                        <span class="text-truncate" style="max-width: 70%;" title="${files[i].name}">${files[i].name}</span>
+                        <span class="file-status"><i class="fas fa-clock text-muted"></i></span>
+                    </div>`;
+            }
+            fileList.insertAdjacentHTML('beforeend', fileListHtml);
+
+            progressText.textContent = 'Hochladen...';
+            const grandTotal = existingFileCount + totalFiles;
+            progressCount.textContent = `${existingFileCount} / ${grandTotal}`;
+            progressBar.style.width = existingFileCount > 0 ? `${Math.round((existingFileCount / grandTotal) * 100)}%` : '0%';
+            progressBar.classList.add('progress-bar-animated');
+            document.getElementById('attachments-status').innerHTML = '';
+
+            // Upload in batches
+            for (let batchStart = 0; batchStart < totalFiles; batchStart += BATCH_SIZE) {
+                if (uploadCancelled) break;
+
+                const batchEnd = Math.min(batchStart + BATCH_SIZE, totalFiles);
+                const batchFiles = files.slice(batchStart, batchEnd);
+
+                // Update status to "uploading" for batch files
+                for (let i = batchStart; i < batchEnd; i++) {
+                    const fileId = existingFileCount + i;
+                    const fileEl = document.getElementById(`file-${fileId}`);
+                    if (fileEl) {
+                        fileEl.querySelector('.file-status').innerHTML = '<i class="fas fa-spinner fa-spin text-primary"></i>';
+                    }
+                }
+
+                try {
+                    const formData = new FormData();
+                    batchFiles.forEach(file => formData.append('files', file));
+
+                    const response = await fetch(basePath + 'upload-attachments', {
+                        method: 'POST',
+                        headers: { 'X-Session-ID': sessionId },
+                        body: formData
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Mark batch files as successful
+                        for (let i = batchStart; i < batchEnd; i++) {
+                            const fileId = existingFileCount + i;
+                            const fileEl = document.getElementById(`file-${fileId}`);
+                            if (fileEl) {
+                                fileEl.querySelector('.file-status').innerHTML = '<i class="fas fa-check text-success"></i>';
+                            }
+                            uploadedFiles.push(files[i].name);
+                            uploadedCount++;
+                        }
+                    } else {
+                        throw new Error(result.detail || 'Upload failed');
+                    }
+                } catch (error) {
+                    // Mark batch files as failed
+                    for (let i = batchStart; i < batchEnd; i++) {
+                        const fileId = existingFileCount + i;
+                        const fileEl = document.getElementById(`file-${fileId}`);
+                        if (fileEl) {
+                            fileEl.querySelector('.file-status').innerHTML = '<i class="fas fa-times text-danger"></i>';
+                        }
+                        failedFiles.push({ name: files[i].name, error: error.message });
+                        failedCount++;
+                    }
+                }
+
+                // Update progress
+                const processed = uploadedCount + failedCount;
+                const combinedProcessed = existingFileCount + processed;
+                const percent = Math.round((combinedProcessed / grandTotal) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressCount.textContent = `${combinedProcessed} / ${grandTotal}`;
+                progressText.textContent = uploadCancelled ? 'Abgebrochen' : `Hochladen... ${percent}%`;
             }
 
-            try {
-                const response = await fetch(basePath + 'upload-attachments', {
-                    method: 'POST',
-                    headers: {
-                        'X-Session-ID': sessionId
-                    },
-                    body: formData
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('attachments-status').innerHTML = 
-                        `<div class="alert alert-success"><i class="fas fa-check"></i> ${result.uploaded_files.length} Anhänge hochgeladen</div>`;
-                    showToast(`${result.uploaded_files.length} Anhänge erfolgreich hochgeladen!`, 'success');
-                    
-                    // Auto-check attachments after upload
-                    autoCheckAttachments();
-                } else {
-                    throw new Error(result.detail);
-                }
-            } catch (error) {
-                document.getElementById('attachments-status').innerHTML = 
-                    `<div class="alert alert-danger"><i class="fas fa-times"></i> Fehler: ${error.message}</div>`;
-                showToast('Fehler beim Anhang-Upload!', 'error');
+            // Finish up
+            cancelBtn.style.display = 'none';
+            uploadArea.style.pointerEvents = 'auto';
+            uploadArea.style.opacity = '1';
+            progressBar.classList.remove('progress-bar-animated');
+
+            // Show final status
+            const totalUploaded = existingFileCount + uploadedCount;
+            let statusHtml = '';
+            if (uploadCancelled) {
+                statusHtml = `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Upload abgebrochen. ${totalUploaded} von ${grandTotal} Dateien hochgeladen.</div>`;
+            } else if (failedCount === 0) {
+                statusHtml = `<div class="alert alert-success"><i class="fas fa-check"></i> ${totalUploaded} Anhänge insgesamt hochgeladen</div>`;
+                showToast(`${uploadedCount} Anhänge erfolgreich hochgeladen!`, 'success');
+            } else if (uploadedCount > 0) {
+                statusHtml = `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> ${totalUploaded} erfolgreich, ${failedCount} fehlgeschlagen</div>`;
+                showToast(`${uploadedCount} hochgeladen, ${failedCount} fehlgeschlagen`, 'warning');
+            } else {
+                statusHtml = `<div class="alert alert-danger"><i class="fas fa-times"></i> Alle ${failedCount} Uploads fehlgeschlagen</div>`;
+                showToast('Upload fehlgeschlagen!', 'error');
             }
+            document.getElementById('attachments-status').innerHTML = statusHtml;
+
+            // Update progress text to show completion
+            progressText.textContent = uploadCancelled ? 'Abgebrochen' : 'Abgeschlossen';
+
+            // Reset file input
+            fileInput.value = '';
+
+            // Auto-check attachments after upload
+            autoCheckAttachments();
+        }
+
+        function cancelUpload() {
+            uploadCancelled = true;
+            document.getElementById('cancel-upload-btn').disabled = true;
+            document.getElementById('cancel-upload-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Abbrechen...';
+            showToast('Upload wird abgebrochen...', 'info');
         }
 
 
