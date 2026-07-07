@@ -164,8 +164,8 @@
                                 <input type="number" class="form-control" id="smtp-port" value="465">
                             </div>
                             <div class="mb-3">
-                                <label for="email-password" class="form-label">Passwort</label>
-                                <input type="password" class="form-control" id="email-password" placeholder="Ihr Email-Passwort">
+                                <label for="email-password" class="form-label">Passwort (optional)</label>
+                                <input type="password" class="form-control" id="email-password" placeholder="Nur nötig, wenn der SMTP-Server Login verlangt">
                             </div>
                         </div>
                     </div>
@@ -1006,7 +1006,7 @@
 
         async function validateAndTestConfig() {
             // First validate that all fields are filled
-            const requiredFields = ['email-login', 'email-password', 'smtp-server'];
+            const requiredFields = ['email-login', 'smtp-server'];
             for (let field of requiredFields) {
                 if (!document.getElementById(field).value.trim()) {
                     showToast(`Bitte füllen Sie das Feld "${field}" aus.`, 'error');

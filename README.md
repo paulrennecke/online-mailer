@@ -50,8 +50,8 @@ chmod +x install_uberspace.sh
 ## Nutzung
 
 ### 1. Konfiguration
-- **SMTP-Server**: Server, Port und Authentifizierung konfigurieren
-- **E-Mail-Adresse**: Absender-E-Mail und Passwort eingeben
+- **SMTP-Server**: Server und Port konfigurieren; Authentifizierung ist optional
+- **E-Mail-Adresse**: Absender-E-Mail eingeben, Passwort nur falls der SMTP-Server es verlangt
 - **Betreff**: E-Mail-Betreff definieren
 - Konfiguration wird im localStorage gespeichert (außer Passwort)
 

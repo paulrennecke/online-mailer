@@ -106,13 +106,14 @@ async def test_config(config: dict):
         smtp_port = int(config.get('smtp_port', 465))
         
         # Validate required fields
-        if not all([email_login, email_password, smtp_server]):
-            raise HTTPException(status_code=400, detail="Alle Konfigurationsdaten sind erforderlich")
+        if not all([email_login, smtp_server]):
+            raise HTTPException(status_code=400, detail="SMTP-Server und E-Mail-Adresse sind erforderlich")
         
         # Test SMTP connection
         try:
             server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-            server.login(email_login, email_password)
+            if email_password:
+                server.login(email_login, email_password)
             server.quit()
             
             return {"success": True, "message": "SMTP-Konfiguration erfolgreich getestet"}
@@ -560,8 +561,8 @@ async def send_emails(request: Request, request_data: dict):
         email_subject = config.get('email_subject')
         
         # Validate configuration
-        if not all([login_acc, login_pass, smtp_server, email_subject]):
-            raise HTTPException(status_code=400, detail="Alle Email-Konfigurationsdaten sind erforderlich")
+        if not all([login_acc, smtp_server, email_subject]):
+            raise HTTPException(status_code=400, detail="E-Mail-Adresse, SMTP-Server und Betreff sind erforderlich")
         
         # Read email body from session
         email_body_path = os.path.join(session["temp_dir"], 'email_body.html')
@@ -603,7 +604,8 @@ async def send_emails(request: Request, request_data: dict):
         
         # Connect to SMTP server
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.login(login_acc, login_pass)
+        if login_pass:
+            server.login(login_acc, login_pass)
         
         sent_emails = []
         failed_emails = []
